@@ -1,0 +1,58 @@
+version: 2
+updates:
+  # PHP / Composer (Laravel, Pest, etc.)
+  - package-ecosystem: "composer"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    labels:
+      - "dependencies"
+      - "php"
+    commit-message:
+      prefix: "chore(deps)"
+
+  # JavaScript / npm (React, Inertia, Tailwind)
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    labels:
+      - "dependencies"
+      - "js"
+    commit-message:
+      prefix: "chore(deps)"
+    groups:
+      # TipTap packages pin exact-version peer deps on their siblings,
+      # so they must be bumped in lockstep or npm ci fails with ERESOLVE.
+      tiptap:
+        patterns:
+          - "@tiptap/*"
+
+  # GitHub Actions
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    labels:
+      - "dependencies"
+      - "ci"
+    commit-message:
+      prefix: "chore(deps)"
+
+  # Docker (Dockerfile lives in docker/app/, not the repo root)
+  - package-ecosystem: "docker"
+    directory: "/docker/app"
+    schedule:
+      interval: "weekly"
+    labels:
+      - "dependencies"
+      - "docker"
+    commit-message:
+      prefix: "chore(deps)"
+    ignore:
+      # The app targets PHP 8.3; major/minor PHP bumps are deliberate
+      # upgrades (phpredis et al. must catch up first) — patch bumps only.
+      - dependency-name: "php"
+        update-types:
+          - "version-update:semver-major"
+          - "version-update:semver-minor"

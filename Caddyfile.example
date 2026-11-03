@@ -1,0 +1,19 @@
+# Example Caddyfile for running www.doc in production with automatic HTTPS
+#
+# Usage:
+#   1. Replace docs.example.com with your actual domain
+#   2. Place this file on your edge server where Caddy is installed
+#   3. Point the reverse_proxy port to wherever docker-compose.prod.yml mapped it (default 8080)
+
+docs.example.com {
+    # Proxy all requests to the Nginx 'web' container in the wwwdoc stack
+    reverse_proxy localhost:8080
+    
+    # Optional security headers
+    header {
+        Strict-Transport-Security "max-age=31536000; includeSubDomains"
+        X-XSS-Protection "1; mode=block"
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "SAMEORIGIN"
+    }
+}

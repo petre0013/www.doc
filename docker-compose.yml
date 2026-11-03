@@ -1,0 +1,79 @@
+name: wwwdoc-dev
+services:
+  db:
+    image: postgres:16-alpine
+    environment: { POSTGRES_DB: wwwdoc, POSTGRES_USER: wwwdoc, POSTGRES_PASSWORD: wwwdoc }
+    ports: ["5433:5432"]
+    volumes: [pgdata:/var/lib/postgresql/data]
+    healthcheck: { test: ["CMD-SHELL", "pg_isready -U wwwdoc"], interval: 5s, retries: 10 }
+  redis: { image: redis:7-alpine }
+  app:
+    build: &app-build { context: ., dockerfile: docker/app/Dockerfile.dev }
+    # Run as the host user so files written to the bind mount (backups, logs,
+    # compiled views) are owned by you, not root. Uses dynamic UID/GID if exported.
+    user: &app-user "${UID:-1000}:${GID:-1000}"
+    command: php artisan serve --host=0.0.0.0 --port=8000
+    environment: &app-env
+      APP_ENV: local
+      DB_CONNECTION: pgsql
+      DB_HOST: db
+      DB_PORT: "5432"
+      DB_DATABASE: wwwdoc
+      DB_USERNAME: wwwdoc
+      DB_PASSWORD: wwwdoc
+      REDIS_HOST: redis
+      QUEUE_CONNECTION: redis
+      SESSION_DRIVER: redis
+      MAIL_MAILER: smtp
+      MAIL_HOST: mailpit
+      MAIL_PORT: "1025"
+      APP_KEY: ${APP_KEY:-}
+      APP_URL: ${APP_URL:-}
+      BACKUP_ENCRYPTION_KEY: ${BACKUP_ENCRYPTION_KEY:-}
+    # Mount raised upload limits into the CLI conf.d so artisan serve (and the
+    # php -S request handler it spawns) accept a full backup archive on import.
+    volumes:
+      - ".:/app"
+      - "./docker/app/php.dev.ini:/usr/local/etc/php/conf.d/zz-uploads.ini:ro"
+    ports: ["8000:8000"]
+    depends_on: &app-deps { db: { condition: service_healthy }, redis: { condition: service_started } }
+  worker:
+    build: *app-build
+    user: *app-user
+    # Processes queued conversion jobs (DOCX/PDF import + export). Longer timeout
+    # so large imports aren't killed mid-parse. Restart on code changes.
+    command: php artisan queue:work --tries=3 --timeout=300
+    environment: *app-env
+    volumes: [".:/app"]
+    depends_on: *app-deps
+  scheduler:
+    build: *app-build
+    user: *app-user
+    # Runs Laravel's scheduler in-process (wakes every minute) so routes/console.php
+    # tasks fire — today the daily assets:prune. Mirrors the prod scheduler service.
+    command: php artisan schedule:work
+    environment: *app-env
+    volumes: [".:/app"]
+    depends_on: *app-deps
+  vite:
+    # Debian/glibc (matches the app/worker/scheduler containers) so the shared
+    # node_modules gets glibc-native binaries. On node:24-alpine (musl) the
+    # shared npm install pulled a musl @resvg/resvg-js binary the glibc app
+    # container couldn't load, silently breaking DOCX diagram export.
+    image: node:24-bookworm-slim
+    working_dir: /app
+    command: sh -c "npm install && npm run dev -- --host 0.0.0.0"
+    volumes: [".:/app"]
+    ports: ["5173:5173"]
+  mailpit:
+    image: axllent/mailpit
+    ports:
+      - "1025:1025"
+      - "8025:8025"
+  samba:
+    image: dperson/samba
+    ports:
+      - "139:139"
+      - "445:445"
+    command: -w "WORKGROUP" -u "smbuser;smbpassword" -s "backups;/shares/backups;yes;no;no;smbuser" -p
+volumes: { pgdata: {} }

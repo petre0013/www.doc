@@ -1,0 +1,128 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+
+jobs:
+  tests:
+    name: Pest + build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    services:
+      db:
+        image: postgres:16
+        env:
+          POSTGRES_DB: wwwdoc_test
+          POSTGRES_USER: wwwdoc
+          POSTGRES_PASSWORD: wwwdoc
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U wwwdoc"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+      redis:
+        image: redis:7
+        ports: ["6379:6379"]
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+
+    steps:
+      - uses: actions/checkout@v7
+
+      # phpunit.xml forces DB_HOST=db / REDIS_HOST=redis; point those names at
+      # the service containers published on localhost.
+      - name: Map service hostnames
+        run: echo "127.0.0.1 db redis" | sudo tee -a /etc/hosts
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.3"
+          extensions: pdo, pdo_pgsql, pgsql, zip, intl, bcmath, redis, mbstring
+          coverage: none
+
+      - name: Setup Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+          cache: npm
+
+      - name: Install PHP dependencies
+        run: composer install --prefer-dist --no-interaction --no-progress
+
+      - name: Prepare environment
+        run: |
+          cp .env.example .env
+          php artisan key:generate
+
+      # Feature tests render Inertia pages through the root Blade template, which
+      # needs the Vite manifest — build the assets before running them.
+      - name: Build frontend
+        run: |
+          npm ci
+          npm run build
+
+      - name: Run tests
+        run: php artisan test
+
+  e2e:
+    name: Docker E2E & Worker Permissions
+    runs-on: ubuntu-latest
+    # Cap the job so a hung interaction (e.g. a Playwright click that never
+    # lands) can't run toward GitHub's 6-hour default before failing.
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Prepare environment
+        run: |
+          cp .env.example .env
+          sed -i 's/^DB_PASSWORD=.*/DB_PASSWORD=secret/' .env
+
+      - name: Build and start Docker stack
+        run: |
+          # The build override compiles the images from the current commit; the
+          # built images are tagged with the ghcr names, so the plain prod file
+          # picks them up in the `up` commands below.
+          docker compose -f docker-compose.prod.yml -f docker-compose.build.yml build
+          # Start app container first to safely initialize the shared volume and avoid race conditions
+          docker compose -f docker-compose.prod.yml up -d app
+          docker compose -f docker-compose.prod.yml up -d
+
+      - name: Wait for services to boot
+        run: sleep 15
+
+      - name: Verify queue worker user
+        run: |
+          # Assert that the actual PHP queue worker process runs as www-data (UID 33).
+          # (Note: The `php` image does not have `ps` installed, so we check /proc directly)
+          if ! docker compose -f docker-compose.prod.yml exec -T worker sh -c "grep -h '^Uid:' /proc/[0-9]*/status | awk '{print \$2}' | grep -q '^33$'"; then
+            echo "Error: Queue worker process is NOT running as www-data (UID 33)!"
+            exit 1
+          fi
+          echo "Success: Queue worker is running as www-data."
+
+      - name: Run health check
+        run: |
+          # Check that the web server is up and correctly proxies to the app container
+          curl -f http://localhost:8080/ || exit 1
+
+      - name: Setup Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+          cache: npm
+
+      - name: Install Node dependencies
+        run: npm ci
+
+      - name: Install Playwright Browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: Run Playwright tests
+        run: npx playwright test
+        env:
+          APP_URL: http://localhost:8080

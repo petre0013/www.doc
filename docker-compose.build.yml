@@ -1,0 +1,14 @@
+# Build-from-source override for the production stack. Adds `build:` blocks on
+# top of docker-compose.prod.yml so the images are compiled locally instead of
+# pulled from GitHub Container Registry (requires a full checkout of the repo):
+#
+#   docker compose -f docker-compose.prod.yml -f docker-compose.build.yml up -d --build
+#
+# Only `app` and `web` need a build: the built image is tagged with the same
+# name the other services (`worker`, `scheduler`) reference, so they pick up
+# the local image automatically.
+services:
+  app:
+    build: { context: ., dockerfile: docker/app/Dockerfile, target: app }
+  web:
+    build: { context: ., dockerfile: docker/app/Dockerfile, target: web }

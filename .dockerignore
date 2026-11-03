@@ -1,0 +1,27 @@
+# Build artefacts and deps — reinstalled/rebuilt inside the image.
+node_modules
+vendor
+public/build
+public/hot
+public/storage
+
+# Runtime data — the Dockerfile recreates an empty storage skeleton.
+storage
+bootstrap/cache
+
+# Secrets and local env — provided at runtime via compose env_file.
+.env
+.env.*
+!.env.example
+
+# VCS, CI, docs, samples, editor cruft.
+.git
+.github
+.gitignore
+.gitattributes
+.examples
+art
+*.md
+.editorconfig
+docker-compose.yml
+docker-compose.prod.yml

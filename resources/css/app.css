@@ -1,0 +1,964 @@
+@font-face {
+    font-family: 'Lexend';
+    font-style: normal;
+    font-weight: 100 900;
+    font-display: swap;
+    src: url('../fonts/lexend.woff2') format('woff2');
+}
+
+@import 'tailwindcss';
+
+@source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
+@source '../../storage/framework/views/*.php';
+
+@theme inline {
+    --font-sans: 'Lexend', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+    --font-mono: ui-monospace, SFMono-Regular, 'JetBrains Mono', Menlo, Consolas, monospace;
+
+    /* Shadcn semantic tokens — mapped to the sage palette (see UI cheatsheet §8) */
+    --color-background: var(--canvas);
+    --color-foreground: var(--text-primary);
+    --color-card: var(--surface);
+    --color-card-foreground: var(--text-primary);
+    --color-popover: var(--surface);
+    --color-popover-foreground: var(--text-primary);
+    --color-primary: var(--accent-400);
+    --color-primary-foreground: var(--text-inverse);
+    --color-secondary: var(--surface-hover);
+    --color-secondary-foreground: var(--text-primary);
+    --color-muted: var(--surface-hover);
+    --color-muted-foreground: var(--text-secondary);
+    --color-accent: var(--accent-100);
+    --color-accent-foreground: var(--accent-600);
+    --color-destructive: var(--danger);
+    --color-destructive-foreground: var(--text-inverse);
+    --color-border: var(--border);
+    --color-input: var(--border);
+    --color-ring: var(--accent-400);
+
+    /* Sage ramp exposed as utilities: bg-accent-400, text-accent-600, ring-accent-200, … */
+    --color-accent-50: var(--accent-50);
+    --color-accent-100: var(--accent-100);
+    --color-accent-200: var(--accent-200);
+    --color-accent-300: var(--accent-300);
+    --color-accent-400: var(--accent-400);
+    --color-accent-500: var(--accent-500);
+    --color-accent-600: var(--accent-600);
+    --color-accent-700: var(--accent-700);
+
+    /* Named surface / text tokens for utilities that need them directly */
+    --color-canvas: var(--canvas);
+    --color-surface: var(--surface);
+    --color-surface-hover: var(--surface-hover);
+    --color-border-subtle: var(--border-subtle);
+    --color-text-primary: var(--text-primary);
+    --color-text-secondary: var(--text-secondary);
+    --color-text-tertiary: var(--text-tertiary);
+    --color-text-inverse: var(--text-inverse);
+
+    /* Semantic accents */
+    --color-info: var(--info);
+    --color-success: var(--success);
+    --color-success-text: var(--success-text);
+    --color-success-surface: var(--success-surface);
+    --color-success-border: var(--success-border);
+    --color-success-tint: var(--success-tint);
+    --color-success-ink: var(--success-ink);
+    --color-warning: var(--warning);
+    --color-danger: var(--danger);
+    --color-danger-surface: var(--danger-surface);
+    --color-danger-border: var(--danger-border);
+
+    /* Warning callout surface (amber banners) */
+    --color-warning-surface: var(--warning-surface);
+    --color-warning-border: var(--warning-border);
+    --color-warning-text: var(--warning-text);
+
+    /* Radii variables dynamically linked to your parameters */
+    --radius-sm: var(--radius-sm);
+    --radius-md: var(--radius-md);
+    --radius-lg: var(--radius-lg);
+    --radius-xl: calc(var(--radius-lg) + 4px);
+}
+
+/* The second selector re-applies the LIGHT tokens inside a diagram's bordered
+   canvas card (`.diagram-artifact`, set in DiagramNodeView) when the dark
+   theme is active: node fills/accents are author-chosen CONTENT colors
+   designed for a light canvas, so the embedded diagram renders as a light
+   artifact (exactly like the read-view SVG and the exports) rather than
+   half-theming into light text on light pastel fills. The scope is the card,
+   not the whole block, so the caption under it follows the page theme.
+   Higher specificity than the [data-theme='dark'] block, so order doesn't
+   matter. */
+:root,
+[data-theme='dark'] .diagram-artifact {
+    color-scheme: light;
+
+    /* Surfaces — warm cream foundation */
+    --canvas: #F5F4ED;
+    /* page background */
+    --surface: #FBFAF5;
+    /* cards, panels */
+    --surface-hover: #EFEEE7;
+    /* subtle hover */
+    --border: #E2DFD4;
+    /* default borders */
+    --border-subtle: #ECE9DF;
+    /* dividers inside cards */
+    --canvas-parchment: #E4E2D8;
+    /* optional darker page bg (cards-on-parchment look), opt-in per page */
+
+    /* Text */
+    --text-primary: #1F2520;
+    /* body text */
+    --text-secondary: #5C625C;
+    /* meta, captions */
+    --text-tertiary: #8E938E;
+    /* placeholders, timestamps */
+    --text-inverse: #F5F4ED;
+    /* text on dark/sage backgrounds */
+
+    /* Accent ramp — sage, the default hue (data-accent blocks below swap it) */
+    --accent-50: #EDF2EA;
+    /* tinted backgrounds (info banners) */
+    --accent-100: #DAE6D4;
+    /* badge backgrounds, soft fills */
+    --accent-200: #BFD2B5;
+    /* borders accenting sage areas */
+    --accent-300: #9FB994;
+    /* hover for primary surfaces */
+    --accent-400: #7E9D72;
+    /* PRIMARY — buttons, key accents */
+    --accent-500: #648354;
+    /* active state, focus rings */
+    --accent-600: #4B6840;
+    /* sage text on light bg (contrast-safe) */
+    --accent-700: #364E2E;
+    /* deep accent, headings on accent-50 */
+
+    /* Semantic */
+    --info: #6E8AA7;
+    /* muted blue */
+    --success: #7E9D72;
+    /* pinned sage green — success stays green in EVERY accent theme */
+    --success-text: #4B6840;
+    /* "good" chip text (pinned sage-600 value) */
+    --success-surface: #DAE6D4;
+    /* "good" chip background (pinned sage-100 value) */
+    --success-border: #BFD2B5;
+    /* "good" chip border (pinned sage-200 value) */
+    --success-tint: #EDF2EA;
+    /* "good" banner/toast background (pinned sage-50 value) */
+    --success-ink: #364E2E;
+    /* "good" banner/toast text (pinned sage-700 value) */
+    --warning: #C99650;
+    /* warm amber */
+    --warning-surface: #FAF1E2;
+    /* amber callout background */
+    --warning-border: #E8C58E;
+    /* amber callout border */
+    --warning-text: #7A5520;
+    /* amber callout text (AA on the surface) */
+    --danger: #B5573E;
+    /* warm terracotta */
+    --danger-surface: #F3E7E2;
+    /* danger callout background */
+    --danger-border: #DDB3A6;
+    /* danger callout border */
+
+    /* Diff view (styleguide §2) */
+    --diff-add-text: #3C5A2E;
+    --diff-add-bg: #E6EFDF;
+    --diff-del-text: #8A4A38;
+    --diff-del-bg: #F6E4DE;
+
+    /* Radii + shadows matching configuration parameters */
+    --radius-sm: 8px;
+    --radius-md: 12px;
+    --radius-lg: 16px;
+    --shadow-sm: 0 1px 2px rgba(31, 37, 32, 0.04);
+    --shadow-md: 0 4px 12px rgba(31, 37, 32, 0.06);
+    --shadow-lg: 0 16px 32px rgba(31, 37, 32, 0.10);
+}
+
+/* ── Dark theme ──────────────────────────────────────────────────────────────
+   Copied verbatim from the sage-design skill's theme.css (the canonical
+   source — change values THERE first, then re-sync this block). The app
+   stamps data-theme on <html> before first paint (see resources/js/lib/
+   theme.js); "system" is resolved in JS, so there is no prefers-color-scheme
+   block here. Never branch on light-vs-dark in app code — only on tokens. */
+[data-theme='dark'] {
+    color-scheme: dark;
+
+    /* Surfaces — warm dark ink (green-tinged, never pure black/gray) */
+    --canvas: #171B17;
+    --surface: #1F241F;
+    --surface-hover: #2A302A;
+    --border: #363D36;
+    --border-subtle: #2C322C;
+    --canvas-parchment: #111411;
+
+    /* Text */
+    --text-primary: #E8E8E0;
+    --text-secondary: #A3A99F;
+    --text-tertiary: #737A70;
+    --text-inverse: #171B17;
+
+    /* Accent ramp (sage default) — tint end goes dark, accent end goes light */
+    --accent-50: #1E2A1C;
+    --accent-100: #283A23;
+    --accent-200: #3A5230;
+    --accent-300: #4E6B41;
+    --accent-400: #7FA471;
+    --accent-500: #93B685;
+    --accent-600: #A9C89B;
+    --accent-700: #C6DDBA;
+
+    /* Semantic */
+    --info: #8AA5BF;
+    --success: #7FA471;
+    --success-text: #A9C89B;
+    --success-surface: #283A23;
+    --success-border: #3A5230;
+    --success-tint: #1E2A1C;
+    --success-ink: #C6DDBA;
+    --warning: #D4A55E;
+    --warning-surface: #342A18;
+    --warning-border: #5C4826;
+    --warning-text: #E2BE7E;
+    --danger: #D07E64;
+    --danger-surface: #36201A;
+    --danger-border: #5E3A2E;
+
+    /* Diff / change views */
+    --diff-add-text: #A9C89B;
+    --diff-add-bg: #24331E;
+    --diff-del-text: #DD9A85;
+    --diff-del-bg: #3A241D;
+
+    /* Shadows need more weight to register on dark surfaces */
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.25);
+    --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.35);
+    --shadow-lg: 0 16px 32px rgba(0, 0, 0, 0.50);
+}
+
+/* ── Accent themes ───────────────────────────────────────────────────────────
+   Copied verbatim from the sage-design skill's theme.css (canonical source —
+   change values THERE first, then re-sync). Five accent hues on the SAME
+   neutrals; theme.js stamps data-accent on <html> alongside data-theme
+   (missing/unknown value ≡ sage). The compound dark blocks win on
+   specificity, so light/dark × accent compose without ordering tricks.
+   Semantic tokens (success/warning/danger/info/diff-*) never change with
+   the accent — "good" status stays green via the pinned --success-* set. */
+
+[data-accent='pink'] {
+    --accent-50: #F7EDF2;
+    --accent-100: #F1DAE6;
+    --accent-200: #E3BFD2;
+    --accent-300: #CEA1B9;
+    --accent-400: #B4809D;
+    --accent-500: #9B6583;
+    --accent-600: #7C4D68;
+    --accent-700: #5E384E;
+}
+
+[data-theme='dark'][data-accent='pink'] {
+    --accent-50: #32202A;
+    --accent-100: #462A3A;
+    --accent-200: #633B52;
+    --accent-300: #804F6B;
+    --accent-400: #BF82A4;
+    --accent-500: #D095B6;
+    --accent-600: #E1AAC8;
+    --accent-700: #F1C7DD;
+}
+
+[data-accent='blue'] {
+    --accent-50: #EBF0FA;
+    --accent-100: #D6E2F7;
+    --accent-200: #B9CCED;
+    --accent-300: #99B1DC;
+    --accent-400: #7793C5;
+    --accent-500: #5B78AD;
+    --accent-600: #455E8C;
+    --accent-700: #32466B;
+}
+
+[data-theme='dark'][data-accent='blue'] {
+    --accent-50: #1D2637;
+    --accent-100: #25344F;
+    --accent-200: #354A71;
+    --accent-300: #476191;
+    --accent-400: #7798D3;
+    --accent-500: #8BAAE4;
+    --accent-600: #A1BEF2;
+    --accent-700: #BFD6FE;
+}
+
+[data-accent='rose'] {
+    --accent-50: #FCECED;
+    --accent-100: #FBD7DB;
+    --accent-200: #F3BAC1;
+    --accent-300: #E298A3;
+    --accent-400: #CA7683;
+    --accent-500: #B25869;
+    --accent-600: #904251;
+    --accent-700: #6E2F3B;
+}
+
+[data-theme='dark'][data-accent='rose'] {
+    --accent-50: #391C21;
+    --accent-100: #51242C;
+    --accent-200: #73323F;
+    --accent-300: #944453;
+    --accent-400: #D87586;
+    --accent-500: #E98A99;
+    --accent-600: #F8A0AE;
+    --accent-700: #FEC3CA;
+}
+
+[data-accent='ochre'] {
+    --accent-50: #F4F0E5;
+    --accent-100: #EAE1C9;
+    --accent-200: #D8CBA2;
+    --accent-300: #C1AF79;
+    --accent-400: #A69150;
+    --accent-500: #8D762B;
+    --accent-600: #705C18;
+    --accent-700: #55450B;
+}
+
+[data-theme='dark'][data-accent='ochre'] {
+    --accent-50: #2D260F;
+    --accent-100: #3F330C;
+    --accent-200: #59480C;
+    --accent-300: #745F17;
+    --accent-400: #AF9545;
+    --accent-500: #C0A85E;
+    --accent-600: #D1BC7A;
+    --accent-700: #E4D4A3;
+}
+
+/* Diagram artifacts always render in light SAGE, whatever the viewer's theme
+   or accent — the embedded canvas card must match the read-view SVG and the
+   exports. The light-token re-assert above handles data-theme; this pins the
+   accent ramp too (direct declarations beat values inherited from <html>). */
+.diagram-artifact {
+    --accent-50: #EDF2EA;
+    --accent-100: #DAE6D4;
+    --accent-200: #BFD2B5;
+    --accent-300: #9FB994;
+    --accent-400: #7E9D72;
+    --accent-500: #648354;
+    --accent-600: #4B6840;
+    --accent-700: #364E2E;
+}
+
+@layer base {
+    *,
+    ::after,
+    ::before,
+    ::backdrop {
+        border-color: var(--color-border, var(--border));
+    }
+}
+
+/* ── Native <select> ─────────────────────────────────────────────────────────
+   Browsers draw their own arrow tight against the right edge, so it never
+   matches the left text padding or the Tabler chevrons used elsewhere. Drop the
+   OS arrow and paint our own (chevron-down, text-tertiary, 1.5 stroke), inset to
+   mirror the left padding. Unlayered, so `padding-right` wins over any `px-*`
+   utility while the utility keeps its `padding-left`. Add `ui-select` to a
+   native <select>. */
+.ui-select {
+    appearance: none;
+    -webkit-appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%238E938E' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 0.625rem center;
+    background-size: 1rem 1rem;
+    padding-right: 2rem;
+}
+
+/* The chevron stroke is baked into the data-URI (SVG can't read CSS vars), so
+   the dark theme swaps the whole image for one stroked in its text-tertiary. */
+[data-theme='dark'] .ui-select {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23737A70' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+}
+
+/* ── Inner scrollbars ─────────────────────────────────────────────────────────
+   Native scrollbars are chunky and stark inside small scroll areas (pickers,
+   dropdown lists, side panels). Add `ui-scroll` to an overflow container to
+   slim the bar and paint the thumb with the border token, so it reads as part
+   of the control and follows the theme. Page-level scrollbars stay native
+   (color-scheme already matches them to the theme). */
+.ui-scroll {
+    scrollbar-width: thin;
+    scrollbar-color: var(--border) transparent; /* fallback: pre-color-mix browsers */
+    scrollbar-color: color-mix(in srgb, var(--text-tertiary) 55%, transparent) transparent;
+}
+/* Older WebKit (Safari < 18.2) ignores scrollbar-color; paint the same look.
+   Browsers that support the standard props above ignore these rules. */
+.ui-scroll::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+.ui-scroll::-webkit-scrollbar-track {
+    background: transparent;
+}
+.ui-scroll::-webkit-scrollbar-thumb {
+    background: var(--border); /* fallback: pre-color-mix browsers */
+    background: color-mix(in srgb, var(--text-tertiary) 55%, transparent);
+    border-radius: 4px;
+}
+.ui-scroll::-webkit-scrollbar-thumb:hover {
+    background: var(--text-tertiary);
+}
+
+/* ── TipTap editor shell ─────────────────────────────────────────────────── */
+
+.tiptap {
+    /* ProseMirror requires pre-wrap: without it the browser collapses
+       whitespace, dropping the spaces around inline node views (wiki-links) on
+       render — and edit+save then reads that collapsed DOM back into the model,
+       losing the spaces permanently. */
+    white-space: pre-wrap;
+}
+
+.tiptap-edit-area {
+    position: relative;
+}
+
+.tiptap-edit-area .tiptap {
+    min-height: 400px;
+    padding: 1.25rem 1.5rem;
+    font-size: 15px;
+    outline: none;
+}
+
+.tiptap-read-area .tiptap {
+    padding: 1.5rem 2rem;
+    font-size: 15px;
+    outline: none;
+}
+
+/* ── Prose content styles (shared edit + read) ───────────────────────────── */
+
+.tiptap p { margin: 0 0 0.875em; line-height: 1.65; }
+.tiptap p:last-child { margin-bottom: 0; }
+/* Blank lines render as empty <p></p> in static HTML (snapshots, exports) and
+   would otherwise collapse. The live ProseMirror editor keeps them open with a
+   trailing <br>; mirror that so the author's spacing is preserved. */
+.tiptap p:empty::before { content: "\00a0"; }
+
+.tiptap h1 { font-size: 1.75rem; font-weight: 600; line-height: 1.25; margin: 1.5em 0 0.5em; }
+.tiptap h2 { font-size: 1.375rem; font-weight: 600; line-height: 1.3; margin: 1.25em 0 0.4em; }
+.tiptap h3 { font-size: 1.125rem; font-weight: 600; line-height: 1.35; margin: 1em 0 0.35em; }
+.tiptap h1:first-child,
+.tiptap h2:first-child,
+.tiptap h3:first-child { margin-top: 0; }
+
+.tiptap ul { list-style: disc; padding-left: 1.5em; margin: 0.75em 0; }
+.tiptap ol { list-style: decimal; padding-left: 1.5em; margin: 0.75em 0; }
+.tiptap li { margin: 0.25em 0; }
+.tiptap li > p { margin-bottom: 0.25em; }
+
+.tiptap code {
+    font-family: var(--font-mono);
+    font-size: 0.875em;
+    background: var(--surface-hover);
+    border: 1px solid var(--border-subtle);
+    border-radius: 4px;
+    padding: 0.1em 0.35em;
+}
+
+.tiptap pre {
+    background: var(--surface-hover);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 1em 1.25em;
+    overflow-x: auto;
+    margin: 1em 0;
+}
+.tiptap pre code {
+    background: none;
+    border: none;
+    padding: 0;
+    font-size: 0.875em;
+}
+
+.tiptap blockquote {
+    border-left: 3px solid var(--accent-300);
+    padding-left: 1em;
+    color: var(--text-secondary);
+    margin: 1em 0;
+    font-style: italic;
+}
+
+/* ── Task lists ──────────────────────────────────────────────────────────── */
+
+/* Scope on the ul, not li[data-type]: the LIVE editor DOM renders task items
+   as plain `li[data-checked]` (TipTap v3 omits data-type in-editor), while
+   static RenderDocument HTML includes it — the ul carries data-type in both. */
+.tiptap ul[data-type='taskList'] {
+    list-style: none;
+    padding-left: 0.25em;
+}
+.tiptap ul[data-type='taskList'] > li {
+    display: flex;
+    gap: 0.5em;
+    align-items: flex-start;
+    margin: 0.25em 0;
+}
+.tiptap ul[data-type='taskList'] > li > label {
+    flex-shrink: 0;
+    padding-top: 0.22em; /* optical alignment with the first text line */
+}
+.tiptap ul[data-type='taskList'] > li > label input {
+    width: 0.95em;
+    height: 0.95em;
+    cursor: pointer;
+    accent-color: var(--accent-400);
+}
+.tiptap-read-area ul[data-type='taskList'] > li > label input {
+    cursor: default;
+}
+.tiptap ul[data-type='taskList'] > li > div {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+.tiptap ul[data-type='taskList'] > li[data-checked='true'] > div {
+    color: var(--text-tertiary);
+}
+/* Nested task lists indent inside the item's content column. */
+.tiptap ul[data-type='taskList'] ul[data-type='taskList'] {
+    padding-left: 1.25em;
+    margin: 0.25em 0 0;
+}
+
+/* ── Callouts ────────────────────────────────────────────────────────────── */
+
+.tiptap .callout {
+    border: 1px solid;
+    border-radius: 10px;
+    padding: 12px 14px;
+    margin: 0.875em 0;
+}
+.tiptap .callout p { margin-bottom: 0.5em; }
+.tiptap .callout p:last-child { margin-bottom: 0; }
+.tiptap .callout-info    { background: var(--accent-50);        border-color: var(--accent-200);      color: var(--accent-700); }
+.tiptap .callout-success { background: var(--success-surface);  border-color: var(--success-border); color: var(--success-text); }
+.tiptap .callout-warning { background: var(--warning-surface); border-color: var(--warning-border); color: var(--warning-text); }
+.tiptap .callout-danger  { background: var(--danger-surface);  border-color: var(--danger-border);  color: var(--danger); }
+
+/* ── Code block syntax highlighting (lowlight/highlight.js classes) ───────
+   Client-side presentation only — the stored HTML stays a plain
+   pre > code.language-*. Colors ride the palette vars so dark mode flips
+   without a second theme. */
+.tiptap pre .hljs-comment,
+.tiptap pre .hljs-quote { color: var(--text-tertiary); font-style: italic; }
+.tiptap pre .hljs-keyword,
+.tiptap pre .hljs-selector-tag,
+.tiptap pre .hljs-doctag,
+.tiptap pre .hljs-meta { color: var(--accent-600); font-weight: 500; }
+.tiptap pre .hljs-string,
+.tiptap pre .hljs-regexp,
+.tiptap pre .hljs-template-tag { color: var(--warning-text); }
+.tiptap pre .hljs-number,
+.tiptap pre .hljs-literal,
+.tiptap pre .hljs-symbol,
+.tiptap pre .hljs-bullet { color: var(--info); }
+.tiptap pre .hljs-title,
+.tiptap pre .hljs-section,
+.tiptap pre .hljs-name { color: var(--accent-700); font-weight: 500; }
+.tiptap pre .hljs-attr,
+.tiptap pre .hljs-attribute,
+.tiptap pre .hljs-variable,
+.tiptap pre .hljs-template-variable,
+.tiptap pre .hljs-type,
+.tiptap pre .hljs-built_in { color: var(--info); }
+.tiptap pre .hljs-deletion { color: var(--diff-del-text); background: var(--diff-del-bg); }
+.tiptap pre .hljs-addition { color: var(--diff-add-text); background: var(--diff-add-bg); }
+.tiptap pre .hljs-emphasis { font-style: italic; }
+.tiptap pre .hljs-strong { font-weight: 600; }
+
+.tiptap hr {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 2em 0;
+}
+
+.tiptap a {
+    color: var(--accent-600);
+    text-decoration: underline;
+    text-decoration-color: var(--accent-300);
+    text-underline-offset: 2px;
+}
+.tiptap a:hover { text-decoration-color: var(--accent-600); }
+
+/* Highlight mark — keep text colour inherited so the fill stays readable, and
+   round the edges slightly so it reads as a highlighter, not a block. */
+.tiptap mark {
+    color: inherit;
+    border-radius: 3px;
+    padding: 0.05em 0.15em;
+    box-decoration-break: clone;
+    -webkit-box-decoration-break: clone;
+}
+
+/* Highlight fills are CONTENT (authors pick light pastels), so they don't flip
+   with the theme — but inherited light body text on them would be unreadable.
+   Pin dark ink on highlighted runs in dark mode. */
+[data-theme='dark'] .tiptap mark {
+    color: #1F2520;
+}
+
+/* Image node view — wrapper, inner container, resize handle */
+.tiptap .image-wrapper {
+    display: block;
+    margin: 0.5em 0;
+    line-height: 1;
+}
+.tiptap .image-wrapper[data-align="center"] { text-align: center; }
+.tiptap .image-wrapper[data-align="right"]  { text-align: right; }
+
+.tiptap .image-inner {
+    display: inline-block;
+    position: relative;
+    max-width: 100%;
+    line-height: 0;
+    vertical-align: bottom;
+}
+
+.tiptap .image-inner img {
+    display: block;
+    max-width: 100%;
+    border-radius: var(--radius-sm);
+    /* Frame + light backing so transparent images don't float on the page. */
+    border: 1px solid var(--border);
+    background: var(--surface);
+    transition: outline 80ms;
+}
+
+.tiptap-edit-area .tiptap .image-wrapper.ProseMirror-selectednode .image-inner img {
+    outline: 2px solid var(--accent-400);
+    outline-offset: 2px;
+}
+
+.tiptap .image-resize-handle {
+    position: absolute;
+    bottom: -5px;
+    right: -5px;
+    width: 10px;
+    height: 10px;
+    background: var(--surface);
+    border: 2px solid var(--accent-400);
+    border-radius: 2px;
+    cursor: se-resize;
+    opacity: 0;
+    transition: opacity 100ms;
+}
+
+.tiptap-edit-area .tiptap .image-wrapper.ProseMirror-selectednode .image-resize-handle {
+    opacity: 1;
+}
+
+.tiptap-read-area .tiptap .image-wrapper {
+    pointer-events: none;
+}
+
+/* Fallback for any raw <img> not inside a NodeView wrapper */
+.tiptap img {
+    max-width: 100%;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border);
+    background: var(--surface);
+}
+
+/* Table */
+.tiptap table {
+    border-collapse: collapse;
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    table-layout: auto !important;
+    margin: 1em 0;
+    overflow-wrap: break-word;
+}
+.tiptap th,
+.tiptap td {
+    box-sizing: border-box;
+    position: relative;
+    border: 1px solid var(--accent-200);
+    padding: 0.5em 0.75em;
+    vertical-align: top;
+    box-shadow: inset 0 0 0 9999px var(--surface);
+    color: var(--text-primary);
+    font-weight: normal;
+    word-break: break-word;
+    overflow-wrap: anywhere;
+    min-width: 0 !important;
+}
+
+/* Prevent bottom margin from appearing when prosemirror injects the resize handle at the end of the cell */
+.tiptap th > p:last-child,
+.tiptap td > p:last-child,
+.tiptap th > p:has(+ .column-resize-handle),
+.tiptap td > p:has(+ .column-resize-handle) {
+    margin-bottom: 0;
+}
+
+/* Even row striping applies to ALL cells initially */
+.tiptap tr:nth-child(even) th,
+.tiptap tr:nth-child(even) td {
+    box-shadow: inset 0 0 0 9999px var(--accent-50);
+}
+
+/* Header styles: Top row */
+.tiptap tr:first-child th {
+    box-shadow: inset 0 0 0 9999px var(--accent-100);
+    color: var(--accent-700);
+    font-weight: 600;
+    text-align: left;
+}
+
+/* Header styles: Left column (matches true header columns, and covers pushed-down header rows if header columns are active) */
+.tiptap tr:not(:first-child) th:first-child:not(:has(+ th)),
+.tiptap table:has(tr th:first-child + td) tr:not(:first-child) th:first-child {
+    box-shadow: inset 0 0 0 9999px var(--accent-100);
+    color: var(--accent-700);
+    font-weight: 600;
+    text-align: left;
+}
+
+/* TipTap table column resize handle (prevents row height jumping during resize) */
+.column-resize-handle {
+    background-color: var(--accent-400);
+    bottom: 0;
+    pointer-events: none;
+    position: absolute;
+    right: -2px;
+    top: 0;
+    width: 4px;
+    z-index: 10;
+}
+
+.tiptap.resize-cursor {
+    cursor: col-resize;
+}
+
+/* Allow custom inline background colors to show through the box-shadow */
+.tiptap th[style*="background-color"],
+.tiptap td[style*="background-color"] {
+    box-shadow: none !important;
+}
+
+/* Cell selection (CellSelection) — a light sage overlay drawn as generated
+   content, so it tints the selection without being copied to the clipboard. */
+.tiptap .selectedCell::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: color-mix(in srgb, var(--accent-400) 12%, transparent);
+    pointer-events: none;
+}
+
+/* Wiki-link nodes — view mode */
+.tiptap .wiki-link {
+    display: inline;
+    font-weight: 500;
+    cursor: pointer;
+    transition: opacity 100ms;
+    /* Base colour so statically-rendered HTML (version snapshots, exports) shows
+       links coloured even without the resolved/unresolved classes the live
+       editor adds via its node view — those more-specific rules still win. */
+    color: var(--accent-600);
+}
+.tiptap .wiki-link.resolved {
+    color: var(--accent-600);
+    text-decoration: underline;
+    text-decoration-color: var(--accent-300);
+    text-underline-offset: 2px;
+}
+.tiptap .wiki-link.resolved:hover { color: var(--accent-700); }
+.tiptap .wiki-link.unresolved {
+    color: var(--warning);
+    border-bottom: 1px dashed color-mix(in srgb, var(--warning) 60%, transparent);
+}
+/* Edit mode — subtle chip so the author knows it's a linked node */
+.tiptap .wiki-link.wiki-link-edit {
+    border-radius: 3px;
+    padding: 1px 4px;
+}
+.tiptap .wiki-link.wiki-link-edit.resolved {
+    background: var(--accent-50);
+}
+.tiptap .wiki-link.wiki-link-edit.unresolved {
+    background: color-mix(in srgb, var(--text-tertiary) 8%, transparent);
+    border-bottom: none;
+}
+
+/* Placeholder */
+.tiptap p.is-editor-empty:first-child::before {
+    content: attr(data-placeholder);
+    color: var(--text-tertiary);
+    pointer-events: none;
+    float: left;
+    height: 0;
+}
+
+/* ── Server-side diff markup (php-htmldiff output on the Compare page) ─────
+   Scoped under .diff-content, which sits INSIDE .tiptap-read-area .tiptap so
+   the regular prose styles above keep applying to the diffed HTML. */
+.diff-content ins {
+    background: var(--diff-add-bg);
+    color: var(--diff-add-text);
+    text-decoration: none;
+    border-radius: 4px;
+    padding: 0 0.12em;
+}
+
+.diff-content del {
+    background: var(--diff-del-bg);
+    color: var(--diff-del-text);
+    text-decoration: line-through;
+    border-radius: 4px;
+    padding: 0 0.12em;
+}
+
+/* Atomic media tokens: a swapped image renders old (ghosted) + new (outlined). */
+.diff-content del img {
+    display: block;
+    margin: 0.5em 0;
+    outline: 2px solid var(--diff-del-text);
+    outline-offset: 2px;
+    opacity: 0.55;
+}
+
+.diff-content ins img {
+    display: block;
+    margin: 0.5em 0;
+    outline: 2px solid var(--diff-add-text);
+    outline-offset: 2px;
+}
+
+/* Focus ring on the editable shell */
+.tiptap-edit-area .tiptap:focus { outline: none; }
+/* React Flow controls (network diagram editor) — grouped panel matching the
+   sage UI. Scoped under .network-diagram-block so it out-specifies React Flow's
+   own (lazily-loaded) stylesheet regardless of load order. */
+.network-diagram-block .react-flow__controls {
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+    box-shadow: var(--shadow-sm);
+}
+.network-diagram-block .react-flow__controls-button {
+    width: 26px;
+    height: 26px;
+    background: var(--surface);
+    border: none;
+    border-bottom: 1px solid var(--border-subtle);
+}
+.network-diagram-block .react-flow__controls-button:last-child {
+    border-bottom: none;
+}
+.network-diagram-block .react-flow__controls-button:hover {
+    background: var(--surface-hover);
+}
+.network-diagram-block .react-flow__controls-button svg {
+    fill: var(--text-secondary);
+    max-width: 13px;
+    max-height: 13px;
+}
+.network-diagram-block .react-flow__controls-button:hover svg {
+    fill: var(--accent-600);
+}
+/* Active (frozen) state for the global lock padlock — mirrors the accent-tinted
+   look of other active toggles so its on/off state reads without hovering. */
+.network-diagram-block .react-flow__controls.controls-locked .react-flow__controls-interactive {
+    background: var(--accent-100);
+}
+.network-diagram-block .react-flow__controls.controls-locked .react-flow__controls-interactive svg {
+    fill: var(--accent-700);
+}
+/* Strip React Flow's default group-node chrome (dark border + grey fill + 10px
+   padding). Our GroupNode draws its own themed container, so the default wrapper
+   is pure leftover that clashes with the sage palette. */
+.network-diagram-block .react-flow__node-group {
+    padding: 0;
+    border: none;
+    background: transparent;
+}
+
+/* Multi-selection bounding box: a visual affordance only. React Flow's base CSS
+   gives `.react-flow__nodesselection-rect` `pointer-events: all` so the whole box
+   can be grabbed to drag the group — but that same box then sits over the selected
+   nodes and swallows every click, so a marquee selection can never be narrowed
+   back to a single node (click a node to edit it) and the click just retries
+   forever. Let clicks/drags fall through: a node still moves the whole group when
+   dragged (React Flow default), clicking a node narrows to it, and dragging empty
+   space inside the box starts a fresh marquee. */
+.network-diagram-block .react-flow__nodesselection-rect {
+    pointer-events: none;
+}
+
+/* Compact markdown for cached GitHub release notes in the Updates settings tab.
+   Deliberately lighter than `.tiptap` (which is tuned for full documents): small
+   headings and tight margins so a changelog reads as dense admin UI, not prose. */
+.release-notes {
+    font-size: 0.8125rem;
+    line-height: 1.6;
+    color: var(--text-secondary);
+}
+.release-notes > :first-child { margin-top: 0; }
+.release-notes > :last-child { margin-bottom: 0; }
+.release-notes h1,
+.release-notes h2,
+.release-notes h3,
+.release-notes h4 {
+    font-size: 0.875rem;
+    font-weight: 600;
+    line-height: 1.4;
+    color: var(--text-primary);
+    margin: 1.1em 0 0.35em;
+}
+.release-notes p { margin: 0.5em 0; }
+.release-notes ul,
+.release-notes ol { padding-left: 1.25em; margin: 0.5em 0; }
+.release-notes ul { list-style: disc; }
+.release-notes ol { list-style: decimal; }
+.release-notes li { margin: 0.15em 0; }
+.release-notes li > p { margin: 0.15em 0; }
+.release-notes a { color: var(--accent-600); text-decoration: underline; }
+.release-notes hr { border: 0; border-top: 1px solid var(--border-subtle); margin: 1em 0; }
+.release-notes code {
+    font-family: var(--font-mono);
+    font-size: 0.85em;
+    background: var(--surface-hover);
+    padding: 0.1em 0.35em;
+    border-radius: 3px;
+}
+.release-notes pre {
+    background: var(--surface-hover);
+    padding: 0.75em;
+    border-radius: var(--radius-sm);
+    overflow-x: auto;
+    margin: 0.6em 0;
+}
+.release-notes pre code { background: none; padding: 0; }
+
+/* ── Inertia/NProgress loading bar ───────────────────────────────────────────
+   Inertia injects an inline stylesheet with a color captured at boot; these
+   token rules out-rank it so the bar follows the ACTIVE accent live (and
+   dodges the boot-time race where the stylesheet isn't parsed yet). */
+#nprogress .bar {
+    background: var(--accent-400) !important;
+}
+#nprogress .peg {
+    box-shadow: 0 0 10px var(--accent-400), 0 0 5px var(--accent-400) !important;
+}
+#nprogress .spinner-icon {
+    border-top-color: var(--accent-400) !important;
+    border-left-color: var(--accent-400) !important;
+}

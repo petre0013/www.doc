@@ -1,0 +1,104 @@
+# Production stack. Uses the pre-built images from GitHub Container Registry, so
+# you don't compile anything — just configure .env and start it. Put your own
+# TLS-terminating reverse proxy in front of the `web` service.
+#
+#   cp .env.example .env   # set DB_PASSWORD, APP_URL, and optionally APP_KEY
+#                          # (APP_ENV/APP_DEBUG are forced to production below, so
+#                          #  whatever .env says for those is ignored)
+#   docker compose -f docker-compose.prod.yml up -d
+#
+# To build from source instead of pulling, add the docker-compose.build.yml
+# override:  docker compose -f docker-compose.prod.yml -f docker-compose.build.yml up -d --build
+name: wwwdoc
+
+x-app: &app-image
+  image: ghcr.io/petre0013/www.doc-app:latest
+  env_file: .env
+  environment: &app-env
+    APP_ENV: production
+    APP_DEBUG: "false"
+    DB_CONNECTION: pgsql
+    DB_HOST: db
+    DB_PORT: "5432"
+    DB_DATABASE: ${DB_DATABASE:-wwwdoc}
+    DB_USERNAME: ${DB_USERNAME:-wwwdoc}
+    REDIS_HOST: redis
+    QUEUE_CONNECTION: redis
+    SESSION_DRIVER: redis
+    CACHE_STORE: redis
+    APP_KEY: ${APP_KEY:-}
+    APP_URL: ${APP_URL:-}
+    BACKUP_ENCRYPTION_KEY: ${BACKUP_ENCRYPTION_KEY:-}
+  restart: unless-stopped
+  logging: &default-logging
+    driver: "json-file"
+    options:
+      max-size: "10m"
+      max-file: "3"
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${DB_DATABASE:-wwwdoc}
+      POSTGRES_USER: ${DB_USERNAME:-wwwdoc}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?set DB_PASSWORD in .env}
+    volumes: ["pgdata:/var/lib/postgresql/data"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-wwwdoc}"]
+      interval: 5s
+      retries: 10
+    restart: unless-stopped
+    logging: *default-logging
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    logging: *default-logging
+
+  app:
+    <<: *app-image
+    # php-fpm; reachable by the web service at app:9000. Code + built assets are
+    # baked into the image; only writable storage (uploads, caches) is a volume.
+    volumes:
+      - app-storage:/var/www/html/storage
+    depends_on:
+      db: { condition: service_healthy }
+      redis: { condition: service_started }
+
+  worker:
+    <<: *app-image
+    command: php artisan queue:work --tries=3 --timeout=300
+    volumes:
+      - app-storage:/var/www/html/storage
+    depends_on:
+      db: { condition: service_healthy }
+      redis: { condition: service_started }
+
+  scheduler:
+    <<: *app-image
+    # Runs Laravel's scheduler in-process (wakes every minute) so registered
+    # tasks actually fire — today that's the daily assets:prune. Shares the
+    # storage volume so the prune can delete the orphaned image files.
+    command: php artisan schedule:work
+    volumes:
+      - app-storage:/var/www/html/storage
+    depends_on:
+      db: { condition: service_healthy }
+      redis: { condition: service_started }
+
+  web:
+    # nginx with the build/ assets baked in (target: web). It serves static
+    # files and proxies PHP to app:9000. Only uploaded assets are shared, via
+    # the storage volume reached through the public/storage symlink.
+    image: ghcr.io/petre0013/www.doc-web:latest
+    volumes:
+      - app-storage:/var/www/html/storage:ro
+    ports: ["8080:80"]
+    depends_on: [app]
+    restart: unless-stopped
+    logging: *default-logging
+
+volumes:
+  pgdata: {}
+  app-storage: {}
