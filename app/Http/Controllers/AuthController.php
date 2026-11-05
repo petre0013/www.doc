@@ -14,6 +14,13 @@ class AuthController extends Controller
     // Allow a short burst of attempts, then lock out per email+IP for a minute.
     private const MAX_ATTEMPTS = 5;
 
+    // Second, per-email-only limit. The email+IP key alone can be dodged by
+    // anyone who can change their apparent IP (a botnet, or a forged
+    // X-Forwarded-For if a proxy is misconfigured), so cap the total failures
+    // against one account regardless of where they come from.
+    private const MAX_ATTEMPTS_PER_EMAIL = 20;
+    private const EMAIL_DECAY_SECONDS = 900;
+
     public function showLogin()
     {
         return Inertia::render('Login');
@@ -26,12 +33,17 @@ class AuthController extends Controller
             'password' => ['required'],
         ]);
 
-        $throttleKey = Str::transliterate(Str::lower($credentials['email']) . '|' . $request->ip());
-        $this->ensureNotRateLimited($throttleKey);
+        $email       = Str::transliterate(Str::lower($credentials['email']));
+        $throttleKey = $email . '|' . $request->ip();
+        $emailKey    = self::emailThrottleKey($email);
+        $this->ensureNotRateLimited($throttleKey, self::MAX_ATTEMPTS);
+        $this->ensureNotRateLimited($emailKey, self::MAX_ATTEMPTS_PER_EMAIL);
 
         if (! Auth::attempt($credentials, $request->boolean('remember'))) {
-            // A failed attempt counts toward the lockout; decays after 60s.
+            // A failed attempt counts toward both lockouts: email+IP decays
+            // after 60s, the per-email total after 15 minutes.
             RateLimiter::hit($throttleKey);
+            RateLimiter::hit($emailKey, self::EMAIL_DECAY_SECONDS);
 
             // Store the attempted email in context, never as the actor — the
             // attempt is unauthenticated, whoever it claimed to be.
@@ -41,6 +53,7 @@ class AuthController extends Controller
         }
 
         RateLimiter::clear($throttleKey);
+        RateLimiter::clear($emailKey);
         $request->session()->regenerate();
 
         \App\Support\Audit::record('auth.login', $request->user());
@@ -48,10 +61,16 @@ class AuthController extends Controller
         return redirect()->intended(route('workspaces.index'));
     }
 
-    /** Stop password guessing: block once too many recent attempts pile up. */
-    private function ensureNotRateLimited(string $throttleKey): void
+    /** Rate-limiter key for the per-email (any IP) failure count. */
+    public static function emailThrottleKey(string $email): string
     {
-        if (! RateLimiter::tooManyAttempts($throttleKey, self::MAX_ATTEMPTS)) {
+        return 'login-email|' . Str::transliterate(Str::lower($email));
+    }
+
+    /** Stop password guessing: block once too many recent attempts pile up. */
+    private function ensureNotRateLimited(string $throttleKey, int $maxAttempts): void
+    {
+        if (! RateLimiter::tooManyAttempts($throttleKey, $maxAttempts)) {
             return;
         }
 

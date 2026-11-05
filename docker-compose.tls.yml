@@ -101,7 +101,6 @@ services:
             }
           }
           reverse_proxy web:80
-          header X-XSS-Protection "1; mode=block"
         }
         EOF
         echo "caddy: serving HTTPS for: $$sites"
@@ -160,8 +159,21 @@ services:
 
   web:
     image: petre0013/www.doc-web:latest
+    environment:
+      # web has no published port, so only containers in this stack (Caddy)
+      # can reach it: trust their X-Forwarded-For. Caddy itself replaces any
+      # X-Forwarded-For a visitor sends, so the IP can't be forged end to end.
+      REAL_IP_FROM: ${REAL_IP_FROM:-10.0.0.0/8,172.16.0.0/12,192.168.0.0/16}
     volumes:
       - app-storage:/var/www/html/storage:ro
+    healthcheck:
+      # /up is Laravel's health route: a 200 proves nginx, php-fpm and the app
+      # boot all work, so Komodo/`docker ps` show real health, not just "running".
+      test: ["CMD-SHELL", "wget -qO /dev/null http://127.0.0.1/up || exit 1"]
+      interval: 30s
+      timeout: 5s
+      start_period: 60s
+      retries: 3
     # No exposed ports here, Caddy securely proxies traffic to this container on port 80
     depends_on: [app]
     restart: unless-stopped

@@ -36,12 +36,22 @@ class AppServiceProvider extends ServiceProvider
         \Illuminate\Auth\Notifications\ResetPassword::toMailUsing(function (object $notifiable, string $token) {
             $app = config('app.name');
 
+            // Build the link on APP_URL, never on the request's Host header:
+            // nginx answers any Host (server_name _), so a forged
+            // `Host: evil.example` on the forgot form would otherwise mail the
+            // victim a link to the attacker's server, leaking the reset token
+            // when they click it. Falls back to the request only when APP_URL
+            // is unset (the docs require it in production).
+            $root = rtrim((string) config('app.url'), '/');
+            $url  = ($root !== '' ? $root : url(''))
+                . route('password.reset', $token, false)
+                . '?email=' . urlencode($notifiable->getEmailForPasswordReset());
+
             return (new \Illuminate\Notifications\Messages\MailMessage)
                 ->subject("[{$app}] Reset your password")
                 ->view('mail.reset-password', [
                     'appName' => $app,
-                    'url'     => route('password.reset', $token)
-                        . '?email=' . urlencode($notifiable->getEmailForPasswordReset()),
+                    'url'     => $url,
                     'expires' => config('auth.passwords.' . config('auth.defaults.passwords') . '.expire'),
                 ]);
         });

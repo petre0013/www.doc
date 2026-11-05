@@ -6,12 +6,23 @@ set -e
 
 cd /var/www/html
 
-# Auto-generate APP_KEY if missing so the app boots smoothly
+# Auto-generate APP_KEY if missing so the app boots smoothly.
+#
+# app, worker and scheduler all boot at once on a fresh volume, so a plain
+# "if missing, write it" lets each container write its OWN key — the worker
+# then can't decrypt what the app encrypted (SMTP / backup-destination
+# passwords). Instead each candidate key is written to a private temp file and
+# hard-linked into place: `ln` is atomic and fails if the target exists, so
+# exactly one key wins and every container reads that one.
 if [ -z "$APP_KEY" ]; then
-    if [ ! -f storage/app_key.txt ]; then
-        echo "base64:$(head -c 32 /dev/urandom | base64)" > storage/app_key.txt
-        chown www-data:www-data storage/app_key.txt 2>/dev/null || true
+    if [ ! -s storage/app_key.txt ]; then
+        tmp=$(mktemp storage/.app_key.XXXXXX)
+        echo "base64:$(head -c 32 /dev/urandom | base64)" > "$tmp"
+        ln "$tmp" storage/app_key.txt 2>/dev/null || true
+        rm -f "$tmp"
     fi
+    chown www-data:www-data storage/app_key.txt 2>/dev/null || true
+    chmod 600 storage/app_key.txt 2>/dev/null || true
     export APP_KEY=$(cat storage/app_key.txt)
 fi
 

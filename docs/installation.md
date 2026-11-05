@@ -27,7 +27,7 @@ Edit `.env`. Only a few variables need setting:
 |----------|-------------|
 | `APP_URL` | The exact address users type in the browser (e.g. `https://docs.example.com` or `http://192.0.2.50:8080`). Used to build links in emails and PDF exports. |
 | `DB_PASSWORD` | A strong password for the internal PostgreSQL database. Not needed anywhere else. |
-| `APP_KEY` | *(Optional)* A 32-byte base64 string (`base64:…`). Leave blank and the app generates one on first boot, stored in its Docker volume. Set it manually only to keep a visible copy in `.env`. Generate with `openssl rand -base64 32`. |
+| `APP_KEY` | *(Recommended)* A 32-byte base64 string (`base64:…`), generated with `echo "base64:$(openssl rand -base64 32)"`. It encrypts sessions and the stored SMTP / backup-destination passwords. Leave blank and the app generates one on first boot and keeps it in the storage volume — but then losing that volume also loses the key, so setting it here (and keeping a copy) is safer. |
 | `BACKUP_ENCRYPTION_KEY` | *(Optional)* Enables encrypted backups. Generate with `openssl rand -base64 32`. **Store it somewhere safe and separate** — an encrypted backup cannot be restored without it. Leave blank for unencrypted backups. |
 
 Email (`MAIL_*`) is not configured here — the setup wizard handles it after boot.
@@ -52,11 +52,14 @@ That's all you need on a trusted network. For public exposure, put your own
 TLS-terminating proxy (Nginx, Caddy, Traefik) in front — see
 [`Caddyfile.example`](../Caddyfile.example) for a sample config.
 
-> **Behind a proxy?** Set `TRUSTED_PROXIES` in `.env` to the proxy's address or
-> subnet so the app logs each visitor's real IP (for the audit log and login
-> throttling) rather than the proxy's. It defaults to private ranges, correct
-> when the proxy runs on the same Docker network. Use `*` only if you fully
-> control what can reach the app — it lets any client spoof its IP.
+> **Behind a proxy?** Set `REAL_IP_FROM` in `.env` to the proxy's address as
+> seen from the `web` container (comma-separated IPs/CIDRs — for a proxy on the
+> Docker host that's usually the gateway, e.g. `172.17.0.1`; otherwise its LAN
+> IP). The bundled nginx then takes each visitor's real IP from the proxy's
+> `X-Forwarded-For` for the audit log and login throttling. Leave it unset when
+> users connect straight to port 8080 — nginx then ignores any
+> `X-Forwarded-For` a visitor sends, so the IP can't be forged. The TLS stack
+> (Option B) configures this for Caddy automatically.
 
 ### Option B: Internal network with self-signed TLS
 
@@ -105,7 +108,14 @@ docker compose -f docker-compose.prod.yml ps        # all services "running"
 docker compose -f docker-compose.prod.yml logs -f app   # watch startup; Ctrl-C to exit
 ```
 
-Then open your `APP_URL` in a browser and the setup wizard walks through:
+Then open your `APP_URL` in a browser and the setup wizard walks through the
+steps below.
+
+> **Do this straight away.** Until the wizard is finished, *whoever reaches the
+> site first* creates the admin account. Complete it right after the first
+> boot, before the address is shared or reachable by others.
+
+The wizard covers:
 
 1. The initial admin account.
 2. The instance name.

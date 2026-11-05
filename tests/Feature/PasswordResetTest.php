@@ -48,6 +48,25 @@ test('the reset email uses the app mail style, not the stock Laravel template', 
     });
 });
 
+test('the reset link uses APP_URL, not a forged Host header', function () {
+    Notification::fake();
+    config(['app.url' => 'https://docs.example.lan']);
+    $user = User::factory()->create(['email' => 'ada@example.com']);
+
+    // Attacker requests a reset for the victim with a Host header they control.
+    $this->withHeaders(['Host' => 'evil.example', 'X-Forwarded-Host' => 'evil.example'])
+        ->post('/forgot-password', ['email' => 'ada@example.com']);
+
+    Notification::assertSentTo($user, ResetPassword::class, function (ResetPassword $notification) use ($user) {
+        $url = $notification->toMail($user)->viewData['url'];
+        expect($url)
+            ->toStartWith('https://docs.example.lan/reset-password/' . $notification->token)
+            ->not->toContain('evil.example');
+
+        return true;
+    });
+});
+
 test('an SMTP outage never surfaces as an error on the forgot form', function () {
     User::factory()->create(['email' => 'ada@example.com']);
 

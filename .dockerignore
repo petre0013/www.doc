@@ -23,5 +23,12 @@ bootstrap/cache
 art
 *.md
 .editorconfig
-docker-compose.yml
-docker-compose.prod.yml
+docker-compose*.yml
+Caddyfile.example
+test-prod-local.sh
+
+# Test suites and docs — not used at runtime.
+tests
+docs
+playwright.config.js
+phpunit.xml

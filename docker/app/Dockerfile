@@ -1,7 +1,9 @@
 # syntax=docker/dockerfile:1
 
 # ── Stage 1: build the frontend assets ──────────────────────────────────────
-FROM node:26-alpine AS assets
+# Same Node major as the runtime below (nodesource 24.x) and the dev vite
+# container, so the build and the app never disagree about Node behaviour.
+FROM node:24-alpine AS assets
 WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci
@@ -55,6 +57,12 @@ RUN mkdir -p \
  && composer dump-autoload --optimize --no-dev \
  && chown -R www-data:www-data storage bootstrap/cache
 
+# Build-only tooling isn't needed once vendor/ is installed: drop git, unzip and
+# the composer binary so they don't ship (or need patching) in the runtime image.
+RUN rm -f /usr/bin/composer \
+ && apt-get purge -y --auto-remove git unzip \
+ && rm -rf /var/lib/apt/lists/* /root/.composer /root/.npm
+
 # The release tag this image was built from ("dev" outside CI). Read by
 # config('app.version') → the Settings footer and backup manifests.
 ARG APP_VERSION=dev
@@ -77,6 +85,9 @@ CMD ["php-fpm"]
 # /storage/* arrives via the shared volume through the public/storage symlink.
 FROM nginx:1.31-alpine AS web
 COPY docker/nginx/default.conf /etc/nginx/conf.d/default.conf
+COPY docker/nginx/security-headers.conf /etc/nginx/snippets/security-headers.conf
+# Writes conf.d/00-real-ip.conf from REAL_IP_FROM on every start (see the script).
+COPY --chmod=755 docker/nginx/40-real-ip.sh /docker-entrypoint.d/40-real-ip.sh
 COPY --from=app /var/www/html/public /var/www/html/public
 RUN ln -s /var/www/html/storage/app/public /var/www/html/public/storage
 EXPOSE 80
