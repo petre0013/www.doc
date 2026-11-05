@@ -9,6 +9,10 @@ env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
   DOCKERHUB_REPO: petre0013/www.doc
+  # A published release gets its own tag; a manual run (workflow_dispatch) is
+  # a preview of main and goes to the "edge" tag instead.
+  VERSION_TAG: ${{ github.event.release.tag_name || 'edge' }}
+  IS_STABLE: ${{ github.event_name == 'release' && !github.event.release.prerelease }}
 
 jobs:
   build-and-push:
@@ -46,7 +50,7 @@ jobs:
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-web
           tags: |
             type=semver,pattern={{version}}
-            type=raw,value=latest
+            type=raw,value=${{ env.VERSION_TAG }}
 
       - name: Build and push App Image
         uses: docker/build-push-action@v7
@@ -55,11 +59,15 @@ jobs:
           file: docker/app/Dockerfile
           target: app
           push: true
+          # VERSION_TAG is the release tag (or "edge" for a manual run); the
+          # `latest` tag is added ONLY for a published, non-prerelease release
+          # (empty lines are skipped), so deploys tracking `latest` — e.g.
+          # Komodo auto-update — never pick up an untagged "dev" build.
           tags: |
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-app:${{ github.event.release.tag_name || 'latest' }}
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-app:latest
-            ${{ env.DOCKERHUB_REPO }}-app:${{ github.event.release.tag_name || 'latest' }}
-            ${{ env.DOCKERHUB_REPO }}-app:latest
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-app:${{ env.VERSION_TAG }}
+            ${{ env.DOCKERHUB_REPO }}-app:${{ env.VERSION_TAG }}
+            ${{ env.IS_STABLE == 'true' && format('{0}/{1}-app:latest', env.REGISTRY, env.IMAGE_NAME) || '' }}
+            ${{ env.IS_STABLE == 'true' && format('{0}-app:latest', env.DOCKERHUB_REPO) || '' }}
           labels: ${{ steps.meta.outputs.labels }}
           # Bake the release tag in so instances can report their version
           # (Settings footer, backup manifests). "dev" when built by hand.
@@ -75,11 +83,15 @@ jobs:
           file: docker/app/Dockerfile
           target: web
           push: true
+          # VERSION_TAG is the release tag (or "edge" for a manual run); the
+          # `latest` tag is added ONLY for a published, non-prerelease release
+          # (empty lines are skipped), so deploys tracking `latest` — e.g.
+          # Komodo auto-update — never pick up an untagged "dev" build.
           tags: |
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-web:${{ github.event.release.tag_name || 'latest' }}
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-web:latest
-            ${{ env.DOCKERHUB_REPO }}-web:${{ github.event.release.tag_name || 'latest' }}
-            ${{ env.DOCKERHUB_REPO }}-web:latest
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-web:${{ env.VERSION_TAG }}
+            ${{ env.DOCKERHUB_REPO }}-web:${{ env.VERSION_TAG }}
+            ${{ env.IS_STABLE == 'true' && format('{0}/{1}-web:latest', env.REGISTRY, env.IMAGE_NAME) || '' }}
+            ${{ env.IS_STABLE == 'true' && format('{0}-web:latest', env.DOCKERHUB_REPO) || '' }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max

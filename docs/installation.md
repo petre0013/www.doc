@@ -137,12 +137,11 @@ docker compose -f docker-compose.prod.yml up -d
 For the internal TLS option, swap `docker-compose.prod.yml` for
 `docker-compose.tls.yml`. Schema migrations run automatically on boot.
 
-The compose files pin a release (e.g. `petre0013/www.doc-app:v1.0.0`), so
-`pull` only fetches something new after you change both `image:` tags (`app`
-and `web`) to the newer version from the
-[releases page](https://github.com/petre0013/www.doc/releases) — or download
-the compose file again from that release. Keep `app` and `web` on the same
-version.
+The compose files use the `latest` tag, which moves only when a new
+[release](https://github.com/petre0013/www.doc/releases) is published — so the
+two commands above always take you to the newest release. To stay on a fixed
+version instead, replace `latest` with a release tag (e.g. `v1.0.0`) on both
+`image:` lines (`app` and `web`); keep the two on the same version.
 
 ---
 
@@ -153,6 +152,10 @@ version.
   into the UI.
 - Add your `.env` variables (`APP_URL`, `DB_PASSWORD`, …) in the manager's
   environment section.
+- **Automatic updates (Komodo):** with the default `latest` tags, enable
+  *Poll for updates* and *Auto update* on the stack — Komodo redeploys when a
+  new release is published. This does not work with a pinned tag like
+  `v1.0.0`, which never changes.
 
 ---
 
