@@ -12,7 +12,7 @@
 name: wwwdoc
 
 x-app: &app-image
-  image: ghcr.io/petre0013/www.doc-app:latest
+  image: petre0013/www.doc-app:latest
   env_file: .env
   environment: &app-env
     APP_ENV: production
@@ -91,7 +91,7 @@ services:
     # nginx with the build/ assets baked in (target: web). It serves static
     # files and proxies PHP to app:9000. Only uploaded assets are shared, via
     # the storage volume reached through the public/storage symlink.
-    image: ghcr.io/petre0013/www.doc-web:latest
+    image: petre0013/www.doc-web:latest
     volumes:
       - app-storage:/var/www/html/storage:ro
     ports: ["8080:80"]

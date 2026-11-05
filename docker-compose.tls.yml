@@ -8,7 +8,7 @@
 name: wwwdoc
 
 x-app: &app-image
-  image: ghcr.io/petre0013/www.doc-app:latest
+  image: petre0013/www.doc-app:latest
   env_file: .env
   environment: &app-env
     APP_ENV: production
@@ -39,7 +39,17 @@ services:
     ports:
       - "80:80"
       - "443:443"
-    entrypoint: /bin/sh
+      - "443:443/udp" # HTTP/3
+    environment:
+      APP_URL: ${APP_URL:-}
+      # Extra names/IPs the site is also reached by (comma or space separated),
+      # e.g. "docs, 192.168.1.10". Caddy only answers TLS for names it has a
+      # certificate for — any other name fails with ERR_SSL_PROTOCOL_ERROR.
+      TLS_HOSTS: ${TLS_HOSTS:-}
+    entrypoint: ["/bin/sh", "-c"]
+    # Builds the Caddyfile from APP_URL (+ TLS_HOSTS) and refuses to start on a
+    # config that can't work, instead of failing later at the TLS handshake.
+    #
     # Self-signed certs: leaves last 30 days (Caddy's default is 12h, which
     # makes browsers re-show the "not trusted" warning several times a day —
     # the click-through exception dies with each rotated cert). 30 days stays
@@ -47,29 +57,55 @@ services:
     # intermediate CA must outlive the leaves, so it is raised to 90 days
     # (Caddy's default is 7 days). To silence the warning entirely, trust the
     # root CA (/data/caddy/pki/authorities/local/root.crt) on each device.
-    command: >
-      -c '
-      URL="${APP_URL:-https://localhost}";
-      DOMAIN=$${URL#*//};
-      DOMAIN=$${DOMAIN%/*};
-      echo "{
-        default_sni $$DOMAIN
-        pki {
-          ca local {
-            intermediate_lifetime 2160h
+    command:
+      - |
+        set -e
+        case "$$APP_URL" in
+          https://*) ;;
+          *) echo "caddy: APP_URL must start with https:// (got '$$APP_URL'). Set it in .env to the exact address users type, e.g. https://docs.example.lan" >&2; exit 1 ;;
+        esac
+        # Host part of APP_URL, without path or port (the port is the host-side
+        # mapping; Caddy itself always listens on 443).
+        host=$${APP_URL#https://}
+        host=$${host%%/*}
+        case "$$host" in
+          \[*) host="$${host%%]*}]" ;;
+          *:*) host=$${host%%:*} ;;
+        esac
+        # Site list: APP_URL host first, then TLS_HOSTS, de-duplicated (Caddy
+        # rejects a name listed twice).
+        list=" $$host "
+        for h in $$(echo "$$TLS_HOSTS" | tr ',' ' '); do
+          case "$$list" in *" $$h "*) ;; *) list="$$list$$h " ;; esac
+        done
+        # Clients connecting by IP send no SNI; serve them the cert of the first
+        # IPv4 in the list so it matches what's in the address bar.
+        sni=$$host
+        for h in $$list; do
+          case "$$h" in *[!0-9.]*) ;; *) sni=$$h; break ;; esac
+        done
+        sites=$$(echo $$list | sed 's/ /, /g')
+        cat > /etc/caddy/Caddyfile <<EOF
+        {
+          default_sni $$sni
+          pki {
+            ca local {
+              intermediate_lifetime 2160h
+            }
           }
         }
-      }
-      $$DOMAIN {
-        tls {
-          issuer internal {
-            lifetime 720h
+        $$sites {
+          tls {
+            issuer internal {
+              lifetime 720h
+            }
           }
+          reverse_proxy web:80
+          header X-XSS-Protection "1; mode=block"
         }
-        reverse_proxy web:80
-        header X-XSS-Protection \"1; mode=block\"
-      }" > /etc/caddy/Caddyfile && caddy run --config /etc/caddy/Caddyfile
-      '
+        EOF
+        echo "caddy: serving HTTPS for: $$sites"
+        exec caddy run --config /etc/caddy/Caddyfile --adapter caddyfile
     volumes:
       - caddy_data:/data
       - caddy_config:/config
@@ -123,7 +159,7 @@ services:
       redis: { condition: service_started }
 
   web:
-    image: ghcr.io/petre0013/www.doc-web:latest
+    image: petre0013/www.doc-web:latest
     volumes:
       - app-storage:/var/www/html/storage:ro
     # No exposed ports here, Caddy securely proxies traffic to this container on port 80
