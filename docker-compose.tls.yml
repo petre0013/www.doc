@@ -8,7 +8,7 @@
 name: wwwdoc
 
 x-app: &app-image
-  image: petre0013/www.doc-app:latest
+  image: petre0013/www.doc-app:v1.0.0
   env_file: .env
   environment: &app-env
     APP_ENV: production
@@ -158,7 +158,7 @@ services:
       redis: { condition: service_started }
 
   web:
-    image: petre0013/www.doc-web:latest
+    image: petre0013/www.doc-web:v1.0.0
     environment:
       # web has no published port, so only containers in this stack (Caddy)
       # can reach it: trust their X-Forwarded-For. Caddy itself replaces any

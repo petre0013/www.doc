@@ -12,7 +12,7 @@
 name: wwwdoc
 
 x-app: &app-image
-  image: petre0013/www.doc-app:latest
+  image: petre0013/www.doc-app:v1.0.0
   env_file: .env
   environment: &app-env
     APP_ENV: production
@@ -91,7 +91,7 @@ services:
     # nginx with the build/ assets baked in (target: web). It serves static
     # files and proxies PHP to app:9000. Only uploaded assets are shared, via
     # the storage volume reached through the public/storage symlink.
-    image: petre0013/www.doc-web:latest
+    image: petre0013/www.doc-web:v1.0.0
     environment:
       # Upstream proxies allowed to report the client IP (X-Forwarded-For).
       # Empty = nginx is the edge and the connecting address is the client.

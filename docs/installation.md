@@ -137,6 +137,13 @@ docker compose -f docker-compose.prod.yml up -d
 For the internal TLS option, swap `docker-compose.prod.yml` for
 `docker-compose.tls.yml`. Schema migrations run automatically on boot.
 
+The compose files pin a release (e.g. `petre0013/www.doc-app:v1.0.0`), so
+`pull` only fetches something new after you change both `image:` tags (`app`
+and `web`) to the newer version from the
+[releases page](https://github.com/petre0013/www.doc/releases) — or download
+the compose file again from that release. Keep `app` and `web` on the same
+version.
+
 ---
 
 ## GUI managers (Komodo, Portainer, Dockge)
