@@ -63,18 +63,37 @@ TLS-terminating proxy (Nginx, Caddy, Traefik) in front — see
 For internal use (a local IP or `.local` hostname) without a proxy, a bundled
 compose file adds a Caddy container that generates a self-signed certificate.
 
-1. Make sure `APP_URL` starts with `https://` (e.g. `https://192.0.2.10`).
-2. Download the TLS compose file:
+1. Set `APP_URL` to `https://` plus the exact name users type, e.g.
+   `https://docs.corp.lan` (the DNS record you created) or `https://192.0.2.10`.
+   The Caddy container refuses to start if it doesn't begin with `https://`.
+2. If users also reach the site by other names or IPs (a short name, the
+   server's IP, …), list them in `TLS_HOSTS`, e.g. `TLS_HOSTS=docs, 192.0.2.10`.
+   Caddy only has certificates for `APP_URL`'s host plus `TLS_HOSTS`; browsing
+   by any other name fails with `ERR_SSL_PROTOCOL_ERROR`. Check what it serves
+   with `docker compose -f docker-compose.tls.yml logs caddy | grep 'serving HTTPS'`.
+3. Download the TLS compose file:
    ```bash
    curl -O https://raw.githubusercontent.com/petre0013/www.doc/main/docker-compose.tls.yml
    ```
-3. Start the stack with only this file:
+4. Start the stack with only this file:
    ```bash
    docker compose -f docker-compose.tls.yml up -d
    ```
+   After changing `APP_URL` or `TLS_HOSTS` later, apply it with
+   `docker compose -f docker-compose.tls.yml up -d --force-recreate`.
 
 The certificate is self-signed, so browsers warn on first visit; this is safe
-to bypass on your own network.
+to bypass on your own network. To remove the warning, trust Caddy's root CA on
+each device (on a Windows domain, push it via Group Policy → *Trusted Root
+Certification Authorities*):
+
+```bash
+docker compose -f docker-compose.tls.yml cp caddy:/data/caddy/pki/authorities/local/root.crt ./wwwdoc-root.crt
+```
+
+> **`ERR_SSL_PROTOCOL_ERROR`?** Either the name in the address bar isn't in
+> `APP_URL`/`TLS_HOSTS` (see step 2), or you're browsing `https://` to the
+> plain-HTTP stack from Option A (port 8080 has no TLS).
 
 ## 4. Run the setup wizard
 
