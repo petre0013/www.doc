@@ -51,6 +51,7 @@ class ExportController extends Controller
         $this->authorize('view', $job);
 
         abort_if($job->document_id !== $document->id, 404);
+        $this->authorize('view', $document);
 
         if ($request->boolean('download')) {
             abort_unless($job->status === 'done', 409, 'Export is not ready yet.');

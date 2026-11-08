@@ -158,6 +158,16 @@ class Document extends Model
     }
 
     /** Files attached to this page, in display order. Not part of version snapshots. */
+    /** Limit a list to pages in workspaces this user may see. */
+    public function scopeAccessibleBy(\Illuminate\Database\Eloquent\Builder $query, User $user): \Illuminate\Database\Eloquent\Builder
+    {
+        if ($user->hasRole('admin')) {
+            return $query;
+        }
+
+        return $query->whereIn($query->qualifyColumn('workspace_id'), Workspace::withTrashed()->accessibleBy($user)->select('workspaces.id'));
+    }
+
     public function attachments(): HasMany
     {
         return $this->hasMany(Attachment::class)->orderBy('position');

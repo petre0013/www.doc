@@ -159,6 +159,7 @@ Route::middleware(['auth', 'auth.session', 'active'])->group(function () {
     // Bulk save of a workspace's whole page tree — the "Reorder" mode's single
     // write on "Done". Declared before the resource so it isn't read as a show.
     Route::patch('workspaces/{workspace}/tree', [DocumentController::class, 'restructure'])->name('workspaces.tree.update');
+    Route::put('workspaces/{workspace}/access', [WorkspaceController::class, 'updateAccess'])->middleware('admin')->name('workspaces.access');
     Route::resource('workspaces', WorkspaceController::class)->except(['create', 'edit']);
     Route::resource('documents', DocumentController::class)->only(['store', 'show', 'update', 'destroy']);
     Route::resource('tags', TagController::class)->only(['index', 'show', 'store', 'update', 'destroy']);

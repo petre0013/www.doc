@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useMemo } from 'react';
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import { toast } from 'sonner';
 import {
-    IconFileText, IconFolderOpen, IconFolderPlus, IconGripVertical, IconPlus, IconTrash,
+    IconLock, IconFileText, IconFolderOpen, IconFolderPlus, IconGripVertical, IconPlus, IconTrash,
     IconCheck, IconChevronRight, IconDots, IconHistory, IconStarFilled,
     IconLibrary, IconLibraryPlus, IconPencil, IconCornerDownRight,
 } from '@tabler/icons-react';
@@ -265,7 +265,7 @@ function EditWorkspaceRow({ id, workspace, depth, gridClass, ghost, canManage, o
                         inputClassName="text-sm font-medium"
                     />
                 ) : (
-                    <span className="truncate text-sm font-medium text-foreground" title={workspace.name}>{workspace.name}</span>
+                    <span className="truncate text-sm font-medium text-foreground" title={workspace.name}>{workspace.name}{workspace.restricted && <IconLock className="ml-1 inline h-3.5 w-3.5 text-text-tertiary" stroke={1.5} aria-label="Restricted workspace" />}</span>
                 )}
             </div>
             <div className="py-3 pr-4">
@@ -312,6 +312,7 @@ function SortableRow({ workspace, gridClass, inGroup = false }) {
                 <Link href={`/workspaces/${workspace.id}`} className="min-w-0">
                     <p className="truncate text-sm font-medium text-foreground transition-colors group-hover:text-accent-600" title={workspace.name}>
                         {workspace.name}
+                        {workspace.restricted && <IconLock className="ml-1 inline h-3.5 w-3.5 text-text-tertiary" stroke={1.5} aria-label="Restricted workspace" />}
                     </p>
                     {workspace.description && (
                         <p className="truncate text-xs text-text-secondary" title={workspace.description}>{workspace.description}</p>

@@ -57,16 +57,24 @@ class DocumentController extends Controller
             'creator',
             'updater',
             'attachments.uploader:id,name',
-            'outgoingLinks.target:id,title,slug',
+            'outgoingLinks.target:id,title,slug,workspace_id',
         ]);
+
+        // A link into a restricted workspace shows as unresolved to non-members.
+        foreach ($document->outgoingLinks as $link) {
+            if ($link->target && ! Auth::user()->canAccessWorkspace($link->target->workspace_id)) {
+                $link->setRelation('target', null);
+                $link->target_document_id = null;
+            }
+        }
 
         // Pages that link here (backlinks). One entry per referencing page —
         // a page that links several times shows once, with its first snippet.
         // Soft-deleted sources drop out via the relation's default scope.
         $backlinks = $document->backlinks()
-            ->with('source:id,title,slug')
+            ->with('source:id,title,slug,workspace_id')
             ->get()
-            ->filter(fn ($link) => $link->source !== null)
+            ->filter(fn ($link) => $link->source !== null && Auth::user()->canAccessWorkspace($link->source->workspace_id))
             ->unique('source_document_id')
             ->map(fn ($link) => [
                 'id'      => $link->source->id,
@@ -91,8 +99,8 @@ class DocumentController extends Controller
             'breadcrumbs'  => $document->ancestors(),
             'backlinks'    => $backlinks,
             'allTags'      => Tag::orderBy('name')->get(),
-            'allDocuments' => Document::with('workspace:id,name')->orderBy('title')->get(['id', 'title', 'slug', 'workspace_id']),
-            'workspaces'   => Workspace::orderBy('name')->get(['id', 'name']),
+            'allDocuments' => Document::accessibleBy(Auth::user())->with('workspace:id,name')->orderBy('title')->get(['id', 'title', 'slug', 'workspace_id']),
+            'workspaces'   => Workspace::accessibleBy(Auth::user())->orderBy('name')->get(['id', 'name']),
             // This workspace's folders, so "New page" here offers the same
             // destinations as the workspace tree's dialog does.
             'folders'      => DocumentFolder::where('workspace_id', $document->workspace_id)
@@ -179,6 +187,7 @@ class DocumentController extends Controller
         $this->authorize('create', Document::class);
 
         $validated = $request->validated();
+        abort_unless(Auth::user()->canAccessWorkspace((int) $validated['workspace_id']), 404);
 
         $template = isset($validated['template_id'])
             ? \App\Models\Template::findOrFail($validated['template_id'])
@@ -448,6 +457,15 @@ class DocumentController extends Controller
             }
         }
         $workspaceChanged = $newWorkspaceId !== $document->workspace_id;
+
+        if ($workspaceChanged) {
+            abort_unless($request->user()->canAccessWorkspace((int) $newWorkspaceId), 404);
+
+            // Moving a page out of a restricted workspace widens who can read
+            // it, so that decision is reserved for admins.
+            abort_if($document->workspace?->restricted && ! $request->user()->hasRole('admin'), 403, 'Only an admin can move a page out of a restricted workspace.');
+        }
+
         $parentChanged = $parentId !== $document->parent_id;
         $movedFrom = ['workspace_id' => $document->workspace_id, 'parent_id' => $document->parent_id];
 

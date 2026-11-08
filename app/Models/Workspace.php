@@ -6,7 +6,9 @@ use App\Models\Concerns\HasSlug;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
@@ -15,6 +17,29 @@ class Workspace extends Model
 {
     /** @use HasFactory<\Database\Factories\WorkspaceFactory> */
     use HasFactory, HasSlug, SoftDeletes;
+
+    protected function casts(): array
+    {
+        return ['restricted' => 'boolean'];
+    }
+
+    /** Who may see this workspace while it is restricted. */
+    public function members(): BelongsToMany
+    {
+        return $this->belongsToMany(User::class, 'workspace_user');
+    }
+
+    /** Limit a list to workspaces this user may see. */
+    public function scopeAccessibleBy(Builder $query, User $user): Builder
+    {
+        if ($user->hasRole('admin')) {
+            return $query;
+        }
+
+        return $query->where(fn ($q) => $q
+            ->where('workspaces.restricted', false)
+            ->orWhereHas('members', fn ($m) => $m->whereKey($user->id)));
+    }
 
     /** The group this workspace is filed under, or null when ungrouped (top level). */
     public function group(): BelongsTo

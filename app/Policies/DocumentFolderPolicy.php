@@ -4,6 +4,8 @@ namespace App\Policies;
 
 use App\Models\DocumentFolder;
 use App\Models\User;
+use App\Policies\Concerns\ChecksWorkspaceAccess;
+use Illuminate\Auth\Access\Response;
 
 /**
  * Folders are organizational containers, not content — the same footing as
@@ -13,18 +15,20 @@ use App\Models\User;
  */
 class DocumentFolderPolicy
 {
+    use ChecksWorkspaceAccess;
+
     public function create(User $user): bool
     {
         return $user->hasAnyRole(['admin', 'editor']);
     }
 
-    public function update(User $user, DocumentFolder $folder): bool
+    public function update(User $user, DocumentFolder $folder): Response|bool
     {
-        return $user->hasAnyRole(['admin', 'editor']);
+        return $this->inWorkspace($user, $folder->workspace_id, ['admin', 'editor']);
     }
 
-    public function delete(User $user, DocumentFolder $folder): bool
+    public function delete(User $user, DocumentFolder $folder): Response|bool
     {
-        return $user->hasAnyRole(['admin', 'editor']);
+        return $this->inWorkspace($user, $folder->workspace_id, ['admin', 'editor']);
     }
 }

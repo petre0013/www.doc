@@ -24,6 +24,20 @@ class User extends Authenticatable
      *
      * @return array<string, string>
      */
+    /** False only for a non-admin outside a restricted workspace. */
+    public function canAccessWorkspace(?int $workspaceId): bool
+    {
+        if ($workspaceId === null || $this->hasRole('admin')) {
+            return true;
+        }
+
+        return ! Workspace::withTrashed()
+            ->whereKey($workspaceId)
+            ->where('restricted', true)
+            ->whereDoesntHave('members', fn ($q) => $q->whereKey($this->id))
+            ->exists();
+    }
+
     public function isActive(): bool
     {
         return $this->deactivated_at === null;

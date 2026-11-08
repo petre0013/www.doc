@@ -37,6 +37,11 @@ class SearchController extends Controller
         ]);
     }
 
+    private function searchUser(): \App\Models\User
+    {
+        return auth()->user();
+    }
+
     private function searchDocuments(string $q): array
     {
         $like = '%' . str_replace(['%', '_'], ['\\%', '\\_'], $q) . '%';
@@ -54,6 +59,12 @@ class SearchController extends Controller
         // operator (`< > | = ~`) can reach to_tsquery (the 500 the old splitter
         // was guarding against). Empty/stopword-only queries → ' ' (no FTS match,
         // ILIKE title fallback still applies), same as before.
+        // Raw SQL can't use the model scopes, so apply the same rule here.
+        $user = $this->searchUser();
+        $access = $user->hasRole('admin') ? '' : 'AND (w.restricted = false OR EXISTS (
+                    SELECT 1 FROM workspace_user wu WHERE wu.workspace_id = w.id AND wu.user_id = ?))';
+        $accessBindings = $user->hasRole('admin') ? [] : [$user->id];
+
         $tsQueryString = DB::selectOne(
             "SELECT COALESCE(string_agg(quote_literal(lexeme) || ':*', ' & '), ' ') AS q
                FROM unnest(to_tsvector(?, ?))",
@@ -111,9 +122,10 @@ class SearchController extends Controller
                     (d.search_vector IS NOT NULL AND d.search_vector @@ to_tsquery(?, ?))
                     OR d.title ILIKE ?
                 )
+                {$access}
             ORDER BY rank DESC
             LIMIT 20
-        ", [$lang, $tsQueryString, $lang, $tsQueryString, $lang, $tsQueryString, $lang, $lang, $tsQueryString, $lang, $tsQueryString, $like]);
+        ", [$lang, $tsQueryString, $lang, $tsQueryString, $lang, $tsQueryString, $lang, $lang, $tsQueryString, $lang, $tsQueryString, $like, ...$accessBindings]);
 
         return array_map(function ($row) {
             $row = (array) $row;
@@ -130,8 +142,8 @@ class SearchController extends Controller
     {
         $like = '%' . str_replace(['%', '_'], ['\\%', '\\_'], $q) . '%';
 
-        $rows = Workspace::where('name', 'ILIKE', $like)
-            ->orWhere('description', 'ILIKE', $like)
+        $rows = Workspace::accessibleBy($this->searchUser())
+            ->where(fn ($query) => $query->where('name', 'ILIKE', $like)->orWhere('description', 'ILIKE', $like))
             ->withCount('documents')
             ->limit(5)
             ->get(['id', 'name', 'description', 'slug'])
@@ -150,7 +162,7 @@ class SearchController extends Controller
         $like = '%' . str_replace(['%', '_'], ['\\%', '\\_'], $q) . '%';
 
         $rows = Tag::where('name', 'ILIKE', $like)
-            ->withCount('documents')
+            ->withCount(['documents' => fn ($query) => $query->accessibleBy($this->searchUser())])
             ->limit(5)
             ->get(['id', 'name', 'slug'])
             ->toArray();

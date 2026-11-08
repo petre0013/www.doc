@@ -15,6 +15,7 @@ class DocumentFolderController extends Controller
     public function store(StoreDocumentFolderRequest $request, Workspace $workspace): RedirectResponse
     {
         $this->authorize('create', DocumentFolder::class);
+        $this->authorize('update', $workspace);
 
         // workspace_id comes from the route, never the payload. Position lands the
         // folder at the TOP of the shared top-level order (folders + loose root

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import { toast } from 'sonner';
-import { IconChevronRight, IconDots, IconFileText, IconFolder, IconFolderPlus, IconGripVertical, IconPencil, IconPlus, IconStar, IconStarFilled, IconTrash, IconUpload, IconFileImport, IconCheck, IconCornerDownRight } from '@tabler/icons-react';
+import { IconLock, IconChevronRight, IconDots, IconFileText, IconFolder, IconFolderPlus, IconGripVertical, IconPencil, IconPlus, IconStar, IconStarFilled, IconTrash, IconUpload, IconFileImport, IconCheck, IconCornerDownRight } from '@tabler/icons-react';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
 import { useUnsavedChangesGuard } from '@/hooks/useUnsavedChangesGuard';
 import { flattenForDnd, getDescendantIds, buildTree } from '@/lib/dndTree';
@@ -26,6 +26,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import NewPageModal from '@/components/ui/NewPageModal';
 import WorkspaceFormModal from '@/components/ui/WorkspaceFormModal';
+import WorkspaceAccessModal from '@/components/ui/WorkspaceAccessModal';
 import FolderFormModal from '@/components/ui/FolderFormModal';
 import ImportDialog from '@/components/ui/ImportDialog';
 import InlineEditableTitle from '@/components/ui/InlineEditableTitle';
@@ -601,7 +602,7 @@ function FilteredRow({ node }) {
 
 // ── Page ────────────────────────────────────────────────────────────────────
 
-export default function WorkspaceShow({ workspace, tree, folders = [], templates = [], starredIds = [] }) {
+export default function WorkspaceShow({ workspace, tree, folders = [], templates = [], starredIds = [], access = null }) {
     const { auth } = usePage().props;
     const perms = can(auth);
     const starredSet = useMemo(() => new Set(starredIds), [starredIds]);
@@ -635,6 +636,7 @@ export default function WorkspaceShow({ workspace, tree, folders = [], templates
     const [dropActive, setDropActive] = useState(false);
     const [pendingImportJobs, setPendingImportJobs] = useState([]);
     const [deleteOpen, setDeleteOpen] = useState(false);
+    const [accessOpen, setAccessOpen] = useState(false);
     const [editOpen, setEditOpen] = useState(false);
 
     // Reorder is an explicit mode (like edit mode): off by default so a stray
@@ -1131,7 +1133,10 @@ export default function WorkspaceShow({ workspace, tree, folders = [], templates
                             inputClassName="text-[19px] font-semibold"
                         />
                     ) : (
-                        <h1 className="text-[19px] font-semibold text-foreground">{workspace.name}</h1>
+                        <h1 className="flex items-center gap-1.5 text-[19px] font-semibold text-foreground">
+                            {workspace.name}
+                            {workspace.restricted && <IconLock className="h-4 w-4 text-text-tertiary" stroke={1.5} aria-label="Restricted workspace" />}
+                        </h1>
                     )}
                     <p className="mt-0.5 text-sm text-text-secondary">
                         {pageCount} {pageCount === 1 ? 'page' : 'pages'}
@@ -1202,6 +1207,12 @@ export default function WorkspaceShow({ workspace, tree, folders = [], templates
                                             <DropdownMenuItem onSelect={() => setEditOpen(true)}>
                                                 <IconPencil stroke={1.5} />
                                                 Edit details…
+                                            </DropdownMenuItem>
+                                        )}
+                                        {access && (
+                                            <DropdownMenuItem onSelect={() => setAccessOpen(true)}>
+                                                <IconLock stroke={1.5} />
+                                                Manage access…
                                             </DropdownMenuItem>
                                         )}
                                         {perms.isAdmin && (
@@ -1430,6 +1441,7 @@ export default function WorkspaceShow({ workspace, tree, folders = [], templates
             templates={templates}
         />
 
+        {access && <WorkspaceAccessModal open={accessOpen} onClose={() => setAccessOpen(false)} workspace={workspace} access={access} />}
         <WorkspaceFormModal
             open={editOpen}
             onClose={() => setEditOpen(false)}

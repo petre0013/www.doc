@@ -17,7 +17,10 @@ class TagController extends Controller
         $this->authorize('viewAny', Tag::class);
 
         return Inertia::render('Tags/Index', [
-            'tags' => Tag::query()->withCount('documents')->orderBy('name')->get(),
+            'tags' => Tag::query()
+                ->withCount(['documents' => fn ($query) => $query->accessibleBy(auth()->user())])
+                ->orderBy('name')
+                ->get(),
         ]);
     }
 
@@ -26,6 +29,7 @@ class TagController extends Controller
         $this->authorize('view', $tag);
 
         $documents = $tag->documents()
+            ->accessibleBy(auth()->user())
             ->with('workspace:id,name', 'tags:id,name')
             ->select(['documents.id', 'documents.title', 'documents.slug', 'documents.workspace_id', 'documents.updated_at'])
             ->orderBy('workspace_id')

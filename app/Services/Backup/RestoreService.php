@@ -62,6 +62,11 @@ class RestoreService
                 // before documents (documents.folder_id → document_folders). A
                 // pre-folders archive has no file and inserts nothing.
                 $this->insert('document_folders', $this->jsonArray($work, 'document_folders'));
+                // Keep restricted workspaces' members (absent from older archives).
+                $this->insert('workspace_user', array_values(array_filter(
+                    $this->jsonArray($work, 'workspace_user'),
+                    fn (array $row) => isset($this->validUsers[$row['user_id']]),
+                )));
                 $this->insert('tags', $this->jsonArray($work, 'tags'));
 
                 // High-volume tables stream row-by-row from NDJSON (a format 1

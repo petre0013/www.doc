@@ -134,6 +134,7 @@ class BackupService
 
         $this->putJson("{$work}/canonical/workspaces.json", $workspaces);
         $this->putJson("{$work}/canonical/workspace_groups.json", $groups);
+        $this->putJson("{$work}/canonical/workspace_user.json", DB::table('workspace_user')->get()->map(fn ($row) => (array) $row));
         $this->putJson("{$work}/canonical/document_folders.json", $folders);
         $this->putJson("{$work}/canonical/tags.json", $tags);
         $this->putJson("{$work}/canonical/links.json", $links);

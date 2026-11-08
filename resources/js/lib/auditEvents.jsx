@@ -69,6 +69,11 @@ const EVENTS = {
     'workspace.updated':       { tone: 'neutral', text: (c) => <>updated the description of {quoted(c?.name)}</>, change: (c) => ({ from: c?.from, to: c?.to }) },
     'workspace.restructured':  { tone: 'neutral', text: (c) => <>reorganised the page tree in {quoted(c?.name)}{c?.page_count ? ` (${c.page_count} pages)` : ''}</> },
     'workspace.moved':         { tone: 'neutral', text: (c) => <>moved the workspace {quoted(c?.name)}</>, change: (c) => ({ from: c?.from_group ?? 'Ungrouped', to: c?.to_group ?? 'Ungrouped' }) },
+    'workspace.access_changed': {
+        tone: 'warning',
+        text: (c) => <>changed who can access {quoted(c?.name)}{c?.added?.length ? ` · added ${c.added.join(', ')}` : ''}{c?.removed?.length ? ` · removed ${c.removed.join(', ')}` : ''}</>,
+        change: (c) => (c?.was !== c?.restricted ? { from: c?.was ? 'Restricted' : 'Everyone', to: c?.restricted ? 'Restricted' : 'Everyone' } : undefined),
+    },
     'workspace.trashed':       { tone: 'warning', text: (c) => <>moved the workspace {quoted(c?.name)} to the trash</> },
     'workspace.restored':      { tone: 'good',    text: (c) => <>restored the workspace {quoted(c?.name)}</> },
     'workspace.purged':        { tone: 'danger',  text: (c) => <>permanently deleted the workspace {quoted(c?.name)}</> },

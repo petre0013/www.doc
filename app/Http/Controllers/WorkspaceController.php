@@ -23,11 +23,14 @@ class WorkspaceController extends Controller
     {
         $this->authorize('viewAny', Workspace::class);
 
+        $user = auth()->user();
+
         $workspaces = Workspace::query()
+            ->accessibleBy($user)
             ->withCount('documents')
             ->orderBy('position')
             ->orderBy('name')
-            ->get(['id', 'name', 'slug', 'description', 'position', 'group_id', 'updated_at']);
+            ->get(['id', 'name', 'slug', 'description', 'position', 'group_id', 'restricted', 'updated_at']);
 
         // Groups (BookStack-style shelves) in display order; the page composes the
         // grouped view client-side from these + each workspace's group_id.
@@ -35,6 +38,7 @@ class WorkspaceController extends Controller
             ->get(['id', 'name', 'slug', 'position']);
 
         $recent = Document::with('workspace')
+            ->accessibleBy($user)
             ->orderByDesc('updated_at')
             ->limit(6)
             ->get()
@@ -47,21 +51,20 @@ class WorkspaceController extends Controller
 
         // Personal quick access (document_user pivot). Trashed pages drop out
         // via Document's soft-delete scope on the relations.
-        $user = auth()->user();
         $docRow = fn (Document $d) => [
             'id'        => $d->id,
             'title'     => $d->title,
             'workspace' => ['name' => $d->workspace->name],
         ];
 
-        $starred = $user->starredDocuments()->with('workspace:id,name')
+        $starred = $user->starredDocuments()->accessibleBy($user)->with('workspace:id,name')
             ->get()->map($docRow)->values();
 
         // Pivot columns aren't cast: last_viewed_at arrives as a bare
         // "Y-m-d H:i:s" string, which browsers parse as LOCAL time — every
         // row would be off by the viewer's UTC offset. Ship it as ISO 8601
         // with timezone like every other date prop.
-        $recentlyViewed = $user->recentlyViewedDocuments()->with('workspace:id,name')
+        $recentlyViewed = $user->recentlyViewedDocuments()->accessibleBy($user)->with('workspace:id,name')
             ->limit(15)->get()
             ->map(fn (Document $d) => $docRow($d) + [
                 'viewed_at' => Carbon::parse($d->pivot->last_viewed_at)->toIso8601String(),
@@ -89,6 +92,10 @@ class WorkspaceController extends Controller
             // Page folders (containers that are NOT pages). The page composes the
             // sections client-side from these + each root page's folder_id.
             'folders'   => $workspace->folders()->get(['id', 'name', 'position']),
+            'access'    => auth()->user()->hasRole('admin') ? [
+                'member_ids' => $workspace->members()->pluck('users.id'),
+                'users'      => \App\Models\User::whereNull('deactivated_at')->orderBy('name')->get(['id', 'name', 'email']),
+            ] : null,
             // For the tree rows' star affordance (personal, per-user).
             'starredIds' => DB::table('document_user')
                 ->where('user_id', auth()->id())
@@ -370,6 +377,39 @@ class WorkspaceController extends Controller
         }
 
         return back();
+    }
+
+    /** Admin only (see the route): set whether a workspace is restricted, and to whom. */
+    public function updateAccess(Request $request, Workspace $workspace): RedirectResponse
+    {
+        $validated = $request->validate([
+            'restricted'   => ['required', 'boolean'],
+            'member_ids'   => ['present', 'array'],
+            'member_ids.*' => ['integer', 'exists:users,id'],
+        ]);
+
+        $wasRestricted = $workspace->restricted;
+
+        $changes = DB::transaction(function () use ($workspace, $validated) {
+            $workspace->forceFill(['restricted' => $validated['restricted']]);
+            Workspace::withoutTimestamps(fn () => $workspace->save());
+
+            return $workspace->members()->sync($validated['member_ids']);
+        });
+
+        if ($wasRestricted !== $workspace->restricted || $changes['attached'] || $changes['detached']) {
+            $names = fn (array $ids) => \App\Models\User::whereIn('id', $ids)->orderBy('name')->pluck('name')->all();
+
+            Audit::record('workspace.access_changed', $workspace, [
+                'name'       => $workspace->name,
+                'restricted' => $workspace->restricted,
+                'was'        => $wasRestricted,
+                'added'      => $names($changes['attached']),
+                'removed'    => $names($changes['detached']),
+            ]);
+        }
+
+        return back()->with('success', 'Workspace access updated.');
     }
 
     public function destroy(Workspace $workspace): RedirectResponse
