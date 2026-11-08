@@ -24,7 +24,7 @@ class Install extends Command
 {
     protected $signature = 'app:install
         {--email= : Admin email (falls back to the ADMIN_EMAIL env var)}
-        {--password= : Admin password (falls back to ADMIN_PASSWORD; min 8 chars)}
+        {--password= : Admin password (falls back to ADMIN_PASSWORD; min 12 chars)}
         {--name= : Admin display name (falls back to ADMIN_NAME, then "Admin")}
         {--no-welcome : Do not create the welcome workspace/page}';
 
@@ -63,14 +63,14 @@ class Install extends Command
 
             $password = $this->option('password') ?: env('ADMIN_PASSWORD');
             if (! $password) {
-                $password = $this->secret('Admin password (min 8 chars)');
+                $password = $this->secret('Admin password (min 12 chars)');
             }
 
             $data = ['name' => $name, 'email' => $email, 'password' => (string) $password];
             $validator = Validator::make($data, [
                 'name' => ['required', 'string', 'max:255'],
                 'email' => ['required', 'email', 'max:255'],
-                'password' => ['required', Password::min(8)],
+                'password' => ['required', \App\Support\PasswordPolicy::rule()],
             ]);
 
             if ($validator->fails()) {

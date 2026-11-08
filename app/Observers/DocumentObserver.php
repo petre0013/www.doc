@@ -133,7 +133,7 @@ class DocumentObserver
      */
     public function forceDeleting(Document $document): void
     {
-        foreach ($document->attachments as $attachment) {
+        foreach ($document->attachments()->withTrashed()->get() as $attachment) {
             Storage::disk($attachment->disk)->delete($attachment->path);
         }
     }

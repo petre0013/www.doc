@@ -16,7 +16,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
  * and deletes throw. Retention pruning (`audit:prune`) bypasses the model via
  * a query-builder delete on purpose — that is the ONE sanctioned removal path.
  */
-#[Fillable(['user_id', 'event', 'auditable_type', 'auditable_id', 'workspace_id', 'context', 'ip', 'created_at'])]
+#[Fillable(['user_id', 'actor_name', 'actor_email', 'event', 'auditable_type', 'auditable_id', 'workspace_id', 'context', 'ip', 'created_at'])]
 class AuditEvent extends Model
 {
     /** @use HasFactory<\Database\Factories\AuditEventFactory> */

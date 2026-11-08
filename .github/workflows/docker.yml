@@ -73,8 +73,19 @@ jobs:
           # (Settings footer, backup manifests). "dev" when built by hand.
           build-args: |
             APP_VERSION=${{ github.event.release.tag_name || 'dev' }}
+          sbom: true
+          provenance: mode=max
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      - name: Scan App image for vulnerabilities
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: ${{ env.DOCKERHUB_REPO }}-app:${{ env.VERSION_TAG }}
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+          format: table
+          exit-code: "0"
 
       - name: Build and push Web Image
         uses: docker/build-push-action@v7
@@ -93,8 +104,19 @@ jobs:
             ${{ env.IS_STABLE == 'true' && format('{0}/{1}-web:latest', env.REGISTRY, env.IMAGE_NAME) || '' }}
             ${{ env.IS_STABLE == 'true' && format('{0}-web:latest', env.DOCKERHUB_REPO) || '' }}
           labels: ${{ steps.meta.outputs.labels }}
+          sbom: true
+          provenance: mode=max
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      - name: Scan Web image for vulnerabilities
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: ${{ env.DOCKERHUB_REPO }}-web:${{ env.VERSION_TAG }}
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+          format: table
+          exit-code: "0"
 
       - name: Update Docker Hub Description for App
         uses: peter-evans/dockerhub-description@v5

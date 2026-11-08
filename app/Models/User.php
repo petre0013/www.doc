@@ -24,10 +24,16 @@ class User extends Authenticatable
      *
      * @return array<string, string>
      */
+    public function isActive(): bool
+    {
+        return $this->deactivated_at === null;
+    }
+
     protected function casts(): array
     {
         return [
             'email_verified_at' => 'datetime',
+            'deactivated_at' => 'datetime',
             'password' => 'hashed',
         ];
     }

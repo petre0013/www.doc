@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Head, router, usePage } from '@inertiajs/react';
 import { IconArrowRight, IconChevronLeft, IconChevronRight, IconHistory } from '@tabler/icons-react';
 import SettingsLayout from '@/Layouts/SettingsLayout';
@@ -25,7 +26,14 @@ function FilterSelect({ value, onChange, children }) {
 }
 
 export default function Audit() {
-    const { events, filters, users, workspaces, eventTypes } = usePage().props;
+    const { events, filters, users, workspaces, eventTypes, retentionDays, chain } = usePage().props;
+    const [retention, setRetention] = useState(retentionDays);
+    const exportQuery = new URLSearchParams(Object.entries(filters).filter(([, v]) => v != null && v !== '')).toString();
+
+    function saveRetention(e) {
+        e.preventDefault();
+        router.patch('/admin/audit/settings', { retention_days: Number(retention) }, { preserveScroll: true });
+    }
 
     function applyFilters(patch) {
         const next = { ...filters, ...patch };
@@ -45,6 +53,28 @@ export default function Audit() {
                         Who changed, restored or deleted content — and when. Events are
                         append-only and pruned after the retention window.
                     </CardDescription>
+                    <div className="flex flex-wrap items-center gap-x-4 gap-y-2 pt-2 text-xs text-text-secondary">
+                        <span className={chain.ok === false ? 'font-medium text-danger' : undefined}>
+                            {chain.verified_at
+                                ? `Integrity ${chain.ok ? 'verified' : 'check FAILED'} ${formatDate(chain.verified_at)}`
+                                : 'Integrity not checked yet'}
+                        </span>
+                        <form onSubmit={saveRetention} className="flex items-center gap-1.5">
+                            <label htmlFor="audit-retention">Keep for</label>
+                            <input
+                                id="audit-retention"
+                                type="number"
+                                min="30"
+                                max="3650"
+                                value={retention}
+                                onChange={(e) => setRetention(e.target.value)}
+                                className="h-7 w-20 rounded-sm border border-border bg-surface px-2 text-foreground"
+                            />
+                            <span>days</span>
+                            <button type="submit" disabled={Number(retention) === retentionDays} className="underline disabled:no-underline disabled:opacity-50">Save</button>
+                        </form>
+                        <a href={`/admin/audit/export${exportQuery ? `?${exportQuery}` : ''}`} className="ml-auto underline">Export CSV</a>
+                    </div>
                 </CardHeader>
 
                 <CardContent className="p-0">

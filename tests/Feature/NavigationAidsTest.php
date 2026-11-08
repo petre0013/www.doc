@@ -19,7 +19,7 @@ function pivotRow(User $user, Document $document): ?object
 test('starring toggles on and off, for any role, without audit events', function () {
     $user = login(role: 'viewer'); // starring is personal — even viewers may
     $document = Document::factory()->for(Workspace::factory())->create();
-    AuditEvent::query()->delete(); // clear setup noise
+    clearAuditEvents(); // clear setup noise
 
     $this->post("/documents/{$document->id}/star")->assertRedirect();
     expect(pivotRow($user, $document)->starred_at)->not->toBeNull();

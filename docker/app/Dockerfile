@@ -82,12 +82,11 @@ CMD ["php-fpm"]
 # for "/" — without it, "/" matches the bare directory and nginx returns 403.
 # Copying public/ from the app stage also brings favicon.ico, robots.txt and the
 # content-hashed build/ assets (immutable per-deploy, so never stale). Uploaded
-# /storage/* arrives via the shared volume through the public/storage symlink.
+# /storage/* is proxied to Laravel, which requires a signed-in session.
 FROM nginx:1.31-alpine AS web
 COPY docker/nginx/default.conf /etc/nginx/conf.d/default.conf
 COPY docker/nginx/security-headers.conf /etc/nginx/snippets/security-headers.conf
 # Writes conf.d/00-real-ip.conf from REAL_IP_FROM on every start (see the script).
 COPY --chmod=755 docker/nginx/40-real-ip.sh /docker-entrypoint.d/40-real-ip.sh
 COPY --from=app /var/www/html/public /var/www/html/public
-RUN ln -s /var/www/html/storage/app/public /var/www/html/public/storage
 EXPOSE 80

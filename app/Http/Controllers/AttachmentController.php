@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Attachment;
 use App\Models\Document;
+use App\Support\Audit;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -58,7 +59,7 @@ class AttachmentController extends Controller
 
         Storage::disk(self::DISK)->put($path, $content);
 
-        $document->attachments()->create([
+        $attachment = $document->attachments()->create([
             'disk'           => self::DISK,
             'path'           => $path,
             'original_name'  => $name,
@@ -69,6 +70,8 @@ class AttachmentController extends Controller
             'position'       => (int) $document->attachments()->max('position') + 1,
         ]);
 
+        Audit::record('attachment.added', $document, $this->auditContext($document, $attachment));
+
         return response()->noContent();
     }
 
@@ -77,6 +80,8 @@ class AttachmentController extends Controller
     {
         $this->authorize('view', $document);
         abort_unless($attachment->document_id === $document->id, 404);
+
+        Audit::record('attachment.downloaded', $document, $this->auditContext($document, $attachment));
 
         return Storage::disk($attachment->disk)->download($attachment->path, $attachment->original_name);
     }
@@ -105,14 +110,19 @@ class AttachmentController extends Controller
             throw ValidationException::withMessages(['name' => 'Attachment name cannot be blank.']);
         }
 
+        $from = $attachment->original_name;
         $attachment->update([
             'original_name' => $ext !== '' ? "{$base}.{$ext}" : $base,
         ]);
 
+        if ($from !== $attachment->original_name) {
+            Audit::record('attachment.renamed', $document, ['title' => $document->title, 'from' => $from, 'to' => $attachment->original_name]);
+        }
+
         return response()->noContent();
     }
 
-    /** Remove an attachment from the page (and its binary, via the model event). */
+    /** Remove an attachment from the page; the file is kept with its history. */
     public function destroy(Document $document, Attachment $attachment): Response
     {
         $this->authorize('update', $document);
@@ -120,6 +130,18 @@ class AttachmentController extends Controller
 
         $attachment->delete();
 
+        Audit::record('attachment.removed', $document, $this->auditContext($document, $attachment));
+
         return response()->noContent();
+    }
+
+    private function auditContext(Document $document, Attachment $attachment): array
+    {
+        return [
+            'title'         => $document->title,
+            'attachment_id' => $attachment->id,
+            'name'          => $attachment->original_name,
+            'checksum'      => $attachment->checksum,
+        ];
     }
 }

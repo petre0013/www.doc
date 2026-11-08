@@ -75,6 +75,15 @@ class TemplateController extends Controller
         ]);
     }
 
+    public function installNis2Pack(): RedirectResponse
+    {
+        $this->authorize('create', Template::class);
+
+        $created = \App\Support\Nis2Templates::install();
+
+        return back()->with('success', $created ? "Added {$created} NIS2 templates." : 'The NIS2 templates are already installed.');
+    }
+
     public function update(Request $request, Template $template): RedirectResponse
     {
         $this->authorize('update', $template);

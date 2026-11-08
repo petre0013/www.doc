@@ -8,7 +8,7 @@
 name: wwwdoc
 
 x-app: &app-image
-  image: petre0013/www.doc-app:latest
+  image: petre0013/www.doc-app:${WWWDOC_VERSION:-latest}
   env_file: .env
   environment: &app-env
     APP_ENV: production
@@ -34,7 +34,7 @@ x-app: &app-image
 
 services:
   caddy:
-    image: caddy:2-alpine
+    image: caddy:2-alpine@sha256:78bd35025c7ba85961dd149ae670315129954e77abe2383ac47c89106b35ade9
     restart: unless-stopped
     ports:
       - "80:80"
@@ -113,7 +113,7 @@ services:
     logging: *default-logging
 
   db:
-    image: postgres:16-alpine
+    image: postgres:16-alpine@sha256:aa6cb33cf4c19c765cefcf48d96176258800870a9a1e930ad126200f9d825139
     environment:
       POSTGRES_DB: ${DB_DATABASE:-wwwdoc}
       POSTGRES_USER: ${DB_USERNAME:-wwwdoc}
@@ -127,7 +127,7 @@ services:
     logging: *default-logging
 
   redis:
-    image: redis:7-alpine
+    image: redis:7-alpine@sha256:c5d34a98396a4775e223c74e929162c35c5a2182901ba26b50ade939941ce14b
     restart: unless-stopped
     logging: *default-logging
 
@@ -158,14 +158,12 @@ services:
       redis: { condition: service_started }
 
   web:
-    image: petre0013/www.doc-web:latest
+    image: petre0013/www.doc-web:${WWWDOC_VERSION:-latest}
     environment:
       # web has no published port, so only containers in this stack (Caddy)
       # can reach it: trust their X-Forwarded-For. Caddy itself replaces any
       # X-Forwarded-For a visitor sends, so the IP can't be forged end to end.
       REAL_IP_FROM: ${REAL_IP_FROM:-10.0.0.0/8,172.16.0.0/12,192.168.0.0/16}
-    volumes:
-      - app-storage:/var/www/html/storage:ro
     healthcheck:
       # /up is Laravel's health route: a 200 proves nginx, php-fpm and the app
       # boot all work, so Komodo/`docker ps` show real health, not just "running".

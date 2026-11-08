@@ -139,3 +139,9 @@ function fixtureDoc(): array
         ]]],
     ]];
 }
+
+/** Clear setup noise through the only path the append-only trigger allows. */
+function clearAuditEvents(): void
+{
+    \App\Support\AuditChain::withMaintenance(fn () => \App\Models\AuditEvent::query()->delete());
+}

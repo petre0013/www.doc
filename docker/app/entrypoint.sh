@@ -26,8 +26,9 @@ if [ -z "$APP_KEY" ]; then
     export APP_KEY=$(cat storage/app_key.txt)
 fi
 
-# Link public/storage -> storage/app/public for uploaded assets. Idempotent.
-php artisan storage:link 2>/dev/null || true
+# Uploaded images must go through Laravel's login check, so remove any public
+# symlink left by an older version.
+[ -L public/storage ] && rm -f public/storage
 
 # Bake the production caches. Safe to re-run on every boot.
 php artisan config:cache

@@ -53,6 +53,17 @@ const EVENTS = {
         text: (c) => <>restored {quoted(c?.title)} to an earlier version{c?.version_date ? ` (${new Date(c.version_date).toLocaleDateString()})` : ''}</>,
     },
 
+    'document.exported':  { tone: 'neutral', text: (c) => <>exported {quoted(c?.title)}{c?.format ? ` as ${c.format.toUpperCase()}` : ''}</> },
+
+    'attachment.added':      { tone: 'good',    text: (c) => <>attached <span className="font-medium">{c?.name}</span> to {quoted(c?.title)}</> },
+    'attachment.downloaded': { tone: 'neutral', text: (c) => <>downloaded <span className="font-medium">{c?.name}</span> from {quoted(c?.title)}</> },
+    'attachment.renamed':    { tone: 'neutral', text: (c) => <>renamed an attachment on {quoted(c?.title)}</>, change: (c) => ({ from: c?.from, to: c?.to }) },
+    'attachment.removed':    { tone: 'warning', text: (c) => <>removed <span className="font-medium">{c?.name}</span> from {quoted(c?.title)}</> },
+
+    'audit.exported':     { tone: 'warning', text: () => 'exported the audit trail' },
+    'audit.pruned':       { tone: 'warning', actorless: true, text: (c) => <>Retention removed {c?.events ?? 'some'} audit events older than {c?.before}</> },
+    'audit.chain_broken': { tone: 'danger',  actorless: true, text: (c) => <>Audit trail integrity check failed at event {c?.broken_at}</> },
+
     'workspace.created':       { tone: 'good',    text: (c) => <>created the workspace {quoted(c?.name)}{c?.group ? <> in the group {quoted(c.group)}</> : ''}</> },
     'workspace.renamed':       { tone: 'neutral', text: () => 'renamed a workspace', change: (c) => ({ from: c?.from, to: c?.to }) },
     'workspace.updated':       { tone: 'neutral', text: (c) => <>updated the description of {quoted(c?.name)}</>, change: (c) => ({ from: c?.from, to: c?.to }) },
@@ -91,6 +102,10 @@ const EVENTS = {
 
     'user.created':      { tone: 'good',    text: (c) => <>created the user {c?.name ? <span className="font-medium">{c.name}</span> : ''}{c?.role ? ` (${c.role})` : ''}</> },
     'user.role_changed': { tone: 'warning', text: (c) => <>changed {c?.name ? <span className="font-medium">{c.name}</span> : 'a user'}’s role</>, change: (c) => ({ from: c?.from, to: c?.to }) },
+    'user.deactivated':  { tone: 'danger',  text: (c) => <>deactivated the user {c?.name ? <span className="font-medium">{c.name}</span> : ''}{c?.email ? ` (${c.email})` : ''}</> },
+    'user.reactivated':  { tone: 'warning', text: (c) => <>reactivated the user {c?.name ? <span className="font-medium">{c.name}</span> : ''}{c?.email ? ` (${c.email})` : ''}</> },
+    'user.email_changed': { tone: 'warning', text: () => 'changed their email address', change: (c) => ({ from: c?.from, to: c?.to }) },
+    'user.renamed':      { tone: 'neutral', text: () => 'changed their display name', change: (c) => ({ from: c?.from, to: c?.to }) },
     'user.deleted':      { tone: 'danger',  text: (c) => <>deleted the user {c?.name ? <span className="font-medium">{c.name}</span> : ''}{c?.email ? ` (${c.email})` : ''}</> },
 
     'auth.login':            { tone: 'neutral', text: () => 'signed in' },
@@ -99,6 +114,7 @@ const EVENTS = {
     'auth.password_changed': { tone: 'neutral', text: () => 'changed their password' },
     'auth.password_reset':   { tone: 'neutral', text: () => 'reset their password via an email link' },
 
+    'settings.audit_updated':  { tone: 'warning', text: () => 'changed the audit retention period (days)', change: (c) => ({ from: String(c?.from), to: String(c?.to) }) },
     'settings.mail_updated':   { tone: 'warning', text: (c) => <>updated the email (SMTP) settings{c?.host ? <> (<span className="font-medium">{c.host}</span>)</> : ''}{c?.verify_peer === false ? ', certificate verification off' : ''}</> },
     'settings.backup_updated': { tone: 'warning', text: () => 'updated the backup settings' },
     'settings.updates_updated': { tone: 'neutral', text: (c) => <>{c?.enabled ? 'enabled' : 'disabled'} the update check</> },
@@ -112,6 +128,9 @@ const EVENTS = {
     'backup.imported':          { tone: 'good',    text: (c) => <>imported a backup archive{c?.undecryptable ? ' (undecryptable — no key)' : ''}</> },
     'backup.restore_requested': { tone: 'warning', text: () => 'started a restore from a backup' },
     'backup.restored':          { tone: 'warning', text: () => 'completed a backup restore' },
+    'backup.downloaded':        { tone: 'warning', text: (c) => <>downloaded a backup archive{c?.encrypted === false ? ' (unencrypted)' : ''}</> },
+    'backup.verified':          { tone: 'good',    actorless: true, text: (c) => <>Backup verified ({c?.files} files, {c?.rows} rows)</> },
+    'backup.verify_failed':     { tone: 'danger',  actorless: true, text: (c) => <>Backup verification failed: {c?.error}</> },
     'backup.deleted':           { tone: 'danger',  text: (c) => <>deleted a backup archive{c?.path ? <> (<span className="font-medium">{c.path}</span>)</> : ''}</> },
 };
 
@@ -122,6 +141,8 @@ const NAMESPACES = {
     folder:    { label: 'Folders',    Icon: IconFolder },
     template:  { label: 'Templates',  Icon: IconTemplate },
     tag:       { label: 'Tags',       Icon: IconTag },
+    attachment: { label: 'Attachments', Icon: IconFileText },
+    audit:     { label: 'Audit trail', Icon: IconHistory },
     trash:     { label: 'Trash',      Icon: IconTrash },
     user:      { label: 'Users',      Icon: IconUsers },
     auth:      { label: 'Sign-ins',   Icon: IconShieldLock },

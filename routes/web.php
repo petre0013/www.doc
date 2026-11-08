@@ -68,7 +68,8 @@ Route::middleware('guest')->group(function () {
         ->middleware('throttle:6,1')->name('password.update');
 });
 
-Route::middleware('auth')->group(function () {
+// auth.session ends a user's other sessions when their password changes.
+Route::middleware(['auth', 'auth.session', 'active'])->group(function () {
     Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 
     // Settings
@@ -82,6 +83,7 @@ Route::middleware('auth')->group(function () {
         Route::post('users', [AdminUserController::class, 'store'])->name('users.store');
         Route::patch('users/{user}', [AdminUserController::class, 'update'])->name('users.update');
         Route::delete('users/{user}', [AdminUserController::class, 'destroy'])->name('users.destroy');
+        Route::post('users/{user}/reactivate', [AdminUserController::class, 'reactivate'])->name('users.reactivate');
 
         // Email (SMTP) settings — the global mailer config (password resets etc.).
         Route::get('settings/mail', [AdminMailSettingsController::class, 'index'])->name('settings.mail');
@@ -110,6 +112,8 @@ Route::middleware('auth')->group(function () {
 
         // Audit trail — read-only (events are created via App\Support\Audit only).
         Route::get('audit', [AdminAuditController::class, 'index'])->name('audit.index');
+        Route::get('audit/export', [AdminAuditController::class, 'export'])->name('audit.export');
+        Route::patch('audit/settings', [AdminAuditController::class, 'updateSettings'])->name('audit.settings');
     });
 
     // Page-to-page comparison. Declared before the resource so 'compare' isn't
@@ -162,7 +166,12 @@ Route::middleware('auth')->group(function () {
     // Page templates — reusable starting points. Managed via Inertia pages;
     // "save as template" snapshots an existing page's content.
     Route::resource('templates', TemplateController::class)->only(['index', 'store', 'edit', 'update', 'destroy']);
+    Route::post('templates/nis2-pack', [TemplateController::class, 'installNis2Pack'])->name('templates.nis2-pack');
     Route::post('documents/{document}/template', [TemplateController::class, 'storeFromDocument'])->name('documents.save-as-template');
+
+    // Uploaded images. Same URL the document JSON has always stored, now behind
+    // login; nginx passes /storage/ to PHP rather than serving it directly.
+    Route::get('storage/{path}', [AssetController::class, 'show'])->where('path', '[A-Za-z0-9._/-]+')->name('assets.show');
 
     // Asset upload + rehost (must be before any {asset} resource route)
     Route::post('assets/rehost', [AssetController::class, 'rehost'])->name('assets.rehost');
@@ -170,7 +179,8 @@ Route::middleware('auth')->group(function () {
 
     // Page attachments — files attached to a document, served as forced downloads.
     Route::post('documents/{document}/attachments', [AttachmentController::class, 'store'])->name('attachments.store');
-    Route::get('documents/{document}/attachments/{attachment}', [AttachmentController::class, 'download'])->name('attachments.download');
+    // withTrashed: a removed file stays downloadable from the versions that list it.
+    Route::get('documents/{document}/attachments/{attachment}', [AttachmentController::class, 'download'])->withTrashed()->name('attachments.download');
     Route::patch('documents/{document}/attachments/{attachment}', [AttachmentController::class, 'update'])->name('attachments.update');
     Route::delete('documents/{document}/attachments/{attachment}', [AttachmentController::class, 'destroy'])->name('attachments.destroy');
 

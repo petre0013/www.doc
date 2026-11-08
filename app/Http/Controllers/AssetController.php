@@ -22,6 +22,18 @@ class AssetController extends Controller
 
     private const MAX_BYTES = 10 * 1024 * 1024; // 10 MB
 
+    /** Serve an uploaded image to a signed-in user. */
+    public function show(string $path)
+    {
+        $disk = Storage::disk(self::DISK);
+        abort_if(str_contains($path, '..') || ! $disk->exists($path), 404);
+
+        return $disk->response($path, null, [
+            'Cache-Control'          => 'private, max-age=3600',
+            'X-Content-Type-Options' => 'nosniff',
+        ]);
+    }
+
     /** Upload a file. Returns {id, url}. Dedupes by SHA-256 checksum. */
     public function store(Request $request): JsonResponse
     {

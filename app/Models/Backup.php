@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-#[Fillable(['status', 'trigger', 'disk', 'path', 'size_bytes', 'manifest', 'error', 'started_at', 'finished_at', 'created_by_id', 'ip', 'report_emailed', 'report_error', 'acknowledged_at', 'restore_status', 'restore_error', 'restored_at'])]
+#[Fillable(['status', 'trigger', 'disk', 'path', 'size_bytes', 'manifest', 'error', 'started_at', 'finished_at', 'created_by_id', 'ip', 'report_emailed', 'report_error', 'acknowledged_at', 'restore_status', 'restore_error', 'restored_at', 'verified_at', 'verify_status', 'verify_error'])]
 class Backup extends Model
 {
     protected function casts(): array
@@ -19,6 +19,7 @@ class Backup extends Model
             'report_emailed'  => 'boolean',
             'acknowledged_at' => 'datetime',
             'restored_at'     => 'datetime',
+            'verified_at'     => 'datetime',
         ];
     }
 

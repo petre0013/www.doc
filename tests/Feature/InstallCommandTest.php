@@ -7,7 +7,7 @@ use App\Models\Workspace;
 it('creates roles, an admin, and a welcome page on a fresh instance', function () {
     $this->artisan('app:install', [
         '--email' => 'boss@example.test',
-        '--password' => 'supersecret',
+        '--password' => 'supersecret-pw',
         '--name' => 'Boss',
     ])->assertSuccessful();
 
@@ -26,7 +26,7 @@ it('creates roles, an admin, and a welcome page on a fresh instance', function (
 it('is idempotent: promotes an existing user and does not duplicate the welcome', function () {
     User::factory()->create(['email' => 'me@example.test']);
 
-    $this->artisan('app:install', ['--email' => 'me@example.test', '--password' => 'supersecret', '--name' => 'Me'])
+    $this->artisan('app:install', ['--email' => 'me@example.test', '--password' => 'supersecret-pw', '--name' => 'Me'])
         ->assertSuccessful();
     // Re-run against the now-existing account.
     $this->artisan('app:install', ['--email' => 'me@example.test'])->assertSuccessful();
@@ -39,7 +39,7 @@ it('is idempotent: promotes an existing user and does not duplicate the welcome'
 it('skips the welcome content with --no-welcome', function () {
     $this->artisan('app:install', [
         '--email' => 'solo@example.test',
-        '--password' => 'supersecret',
+        '--password' => 'supersecret-pw',
         '--no-welcome' => true,
     ])->assertSuccessful();
 

@@ -92,6 +92,52 @@ class RestoreService
     }
 
     /**
+     * Prove an archive is restorable without touching live data: fetch, decrypt,
+     * check every file's hash, and confirm the data files parse to the row
+     * counts in the manifest.
+     *
+     * @return array{files:int, rows:int}
+     */
+    public function verifyArchive(Backup $backup): array
+    {
+        $work = sys_get_temp_dir() . '/' . uniqid('wwwdoc_verify_');
+
+        try {
+            $this->extract($backup, $work);
+            $this->verify($work);
+
+            $manifest = json_decode(File::get("{$work}/manifest.json"), true);
+            if (empty($manifest['files'])) {
+                throw new \RuntimeException('The manifest lists no files.');
+            }
+
+            $rows = 0;
+            foreach ($manifest['counts'] ?? [] as $table => $expected) {
+                if (! File::exists("{$work}/canonical/{$table}.ndjson") && ! File::exists("{$work}/canonical/{$table}.json")) {
+                    continue;
+                }
+
+                $actual = 0;
+                foreach ($this->canonicalRows($work, $table) as $row) {
+                    if (! is_array($row)) {
+                        throw new \RuntimeException("{$table} contains an unreadable row.");
+                    }
+                    $actual++;
+                }
+
+                if ($actual !== (int) $expected) {
+                    throw new \RuntimeException("{$table} has {$actual} rows; the manifest records {$expected}.");
+                }
+                $rows += $actual;
+            }
+
+            return ['files' => count($manifest['files']), 'rows' => $rows];
+        } finally {
+            File::deleteDirectory($work);
+        }
+    }
+
+    /**
      * Back up the CURRENT content model before wiping it. Canonical-only (no
      * readable PDFs — recoverability is all that matters here) via the configured
      * destination + encryption, tagged 'pre-restore'. If it can't be taken, throw
@@ -290,8 +336,15 @@ class RestoreService
             $batch = [];
         };
 
+        // Rows older than the oldest live event were removed by retention;
+        // merging them back would also leave a false gap in the hash chain.
+        $floor = DB::table('audit_events')->min('id');
+
         foreach ($this->canonicalRows($work, 'audit_events') as $row) {
-            $batch[] = $this->encodeJsonColumns($this->nullMissingUsers($row, ['user_id']));
+            if ($floor !== null && $row['id'] < $floor) {
+                continue;
+            }
+            $batch[] = $this->encodeJsonColumns($row);
             if (count($batch) >= 200) {
                 $flush();
             }

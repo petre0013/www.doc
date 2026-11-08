@@ -139,7 +139,7 @@ it('404s when the attachment belongs to another document', function () {
         ->assertNotFound();
 });
 
-it('editor can delete an attachment and its binary is removed', function () {
+it('editor can remove an attachment and its binary is retained', function () {
     login(role: 'editor');
     $document = Document::factory()->create();
     Storage::disk('local')->put('attachments/gone.pdf', 'bytes');
@@ -148,8 +148,9 @@ it('editor can delete an attachment and its binary is removed', function () {
     $this->delete("/documents/{$document->id}/attachments/{$attachment->id}")
         ->assertNoContent();
 
-    expect(Attachment::find($attachment->id))->toBeNull();
-    Storage::disk('local')->assertMissing('attachments/gone.pdf');
+    expect(Attachment::find($attachment->id))->toBeNull()
+        ->and(Attachment::withTrashed()->find($attachment->id))->not->toBeNull();
+    Storage::disk('local')->assertExists('attachments/gone.pdf');
 });
 
 it('viewers cannot delete attachments', function () {

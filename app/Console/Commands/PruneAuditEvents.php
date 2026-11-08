@@ -4,6 +4,8 @@ namespace App\Console\Commands;
 
 use App\Models\AuditEvent;
 use App\Models\Setting;
+use App\Support\Audit;
+use App\Support\AuditChain;
 use Illuminate\Console\Attributes\Description;
 use Illuminate\Console\Attributes\Signature;
 use Illuminate\Console\Command;
@@ -39,7 +41,11 @@ class PruneAuditEvents extends Command
 
         // Query-builder delete on purpose: the model throws on delete to keep
         // the trail append-only — retention pruning is the ONE sanctioned path.
-        $pruned = $query->delete();
+        $pruned = AuditChain::withMaintenance(fn () => $query->delete());
+
+        if ($pruned > 0) {
+            Audit::record('audit.pruned', null, ['events' => $pruned, 'before' => $cutoff->toDateString(), 'retention_days' => $days]);
+        }
 
         $this->info("Pruned {$pruned} audit events older than {$cutoff->toDateString()} ({$days} days).");
 

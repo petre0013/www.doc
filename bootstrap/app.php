@@ -33,6 +33,7 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
         $middleware->alias([
             'admin' => \App\Http\Middleware\EnsureAdmin::class,
+            'active' => \App\Http\Middleware\EnsureUserActive::class,
         ]);
 
         $middleware->trimStrings(except: [

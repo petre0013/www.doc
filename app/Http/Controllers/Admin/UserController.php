@@ -24,13 +24,14 @@ class UserController extends Controller
     {
         $users = User::query()
             ->orderBy('name')
-            ->get(['id', 'name', 'email', 'avatar_color'])
+            ->get(['id', 'name', 'email', 'avatar_color', 'deactivated_at'])
             ->map(fn (User $user) => [
                 'id'           => $user->id,
                 'name'         => $user->name,
                 'email'        => $user->email,
                 'avatar_color' => $user->avatar_color,
                 'role'         => $user->getRoleNames()->first(),
+                'active'       => $user->isActive(),
             ]);
 
         return Inertia::render('Admin/Users', [
@@ -44,7 +45,7 @@ class UserController extends Controller
         $validated = $request->validate([
             'name'     => ['required', 'string', 'max:255'],
             'email'    => ['required', 'email', 'max:255', 'unique:users,email'],
-            'password' => ['required', 'confirmed', Password::min(8)],
+            'password' => ['required', 'confirmed', \App\Support\PasswordPolicy::rule()],
             'role'     => ['required', Rule::in(self::ROLES)],
         ]);
 
@@ -92,29 +93,35 @@ class UserController extends Controller
     public function destroy(Request $request, User $user): RedirectResponse
     {
         if ($user->is($request->user())) {
-            return back()->with('error', 'You cannot delete your own account.');
+            return back()->with('error', 'You cannot deactivate your own account.');
         }
 
         if ($this->isLastAdmin($user)) {
             return back()->with('error', 'There must be at least one admin.');
         }
 
-        // Snapshot identity in context: the FK on any of their past events is
-        // about to be scrubbed to NULL by the delete cascade.
-        Audit::record('user.deleted', null, [
-            'user_id' => $user->id,
-            'name'    => $user->name,
-            'email'   => $user->email,
-        ]);
+        // Deactivate rather than delete, so past events and versions stay
+        // attributable to a real account.
+        $user->forceFill(['deactivated_at' => now(), 'remember_token' => null])->save();
 
-        $user->delete();
+        Audit::record('user.deactivated', $user, ['name' => $user->name, 'email' => $user->email]);
 
-        return back()->with('success', 'User deleted.');
+        return back()->with('success', 'User deactivated.');
     }
 
-    /** True when $user is an admin and the only one left. */
+    public function reactivate(User $user): RedirectResponse
+    {
+        $user->forceFill(['deactivated_at' => null])->save();
+
+        Audit::record('user.reactivated', $user, ['name' => $user->name, 'email' => $user->email]);
+
+        return back()->with('success', 'User reactivated.');
+    }
+
+    /** True when $user is the only active admin left. */
     protected function isLastAdmin(User $user): bool
     {
-        return $user->hasRole('admin') && User::role('admin')->count() === 1;
+        return $user->isActive() && $user->hasRole('admin')
+            && User::role('admin')->whereNull('deactivated_at')->count() === 1;
     }
 }

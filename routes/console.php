@@ -18,6 +18,10 @@ Schedule::command('model:prune', ['--model' => [\App\Models\ConversionJob::class
 // `audit.retention_days` setting) — the one sanctioned delete path.
 Schedule::command('audit:prune')->daily();
 
+// Detect tampering with the audit trail, and prove backups can still be read.
+Schedule::command('audit:verify')->daily();
+Schedule::command('backup:verify')->weekly();
+
 // Refresh the latest-release cache for the outdated-version notice. A no-op
 // unless an admin opted in (App\Support\UpdateCheck), and silent when offline;
 // daily is frequent enough and avoids hammering the GitHub API.

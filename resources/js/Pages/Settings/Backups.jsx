@@ -903,6 +903,8 @@ export default function Backups() {
                                         {b.counts?.attachments != null && `, ${b.counts.attachments} attachments`}
                                         {b.created_by && ` · by ${b.created_by}`}
                                         {['failed', 'missing'].includes(b.status) && b.error && <span className="text-danger"> · {b.error}</span>}
+                                        {b.verify_status === 'passed' && ` · verified ${formatDateTime(b.verified_at)}`}
+                                        {b.verify_status === 'failed' && <span className="text-danger"> · verification failed {formatDateTime(b.verified_at)}: {b.verify_error}</span>}
                                     </div>
                                 </div>
 

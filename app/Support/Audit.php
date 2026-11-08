@@ -3,9 +3,11 @@
 namespace App\Support;
 
 use App\Models\AuditEvent;
+use App\Models\User;
 use App\Models\Workspace;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Single entry point for the append-only audit trail. Call from controllers,
@@ -31,16 +33,34 @@ class Audit
      */
     public static function record(string $event, ?Model $subject = null, array $context = [], ?int $actorId = null, ?string $ip = null): AuditEvent
     {
-        return AuditEvent::create([
-            'user_id'        => $actorId ?? Auth::id(),
-            'event'          => $event,
-            'auditable_type' => $subject?->getMorphClass(),
-            'auditable_id'   => $subject?->getKey(),
-            'workspace_id'   => self::workspaceId($subject),
-            'context'        => $context ?: null,
-            'ip'             => $ip ?? (app()->runningInConsole() ? null : request()->ip()),
-            'created_at'     => now(),
-        ]);
+        $actorId ??= Auth::id();
+        $actor = $actorId ? (Auth::id() === $actorId ? Auth::user() : User::find($actorId)) : null;
+
+        // The lock is held until commit, so each new row links to the true
+        // previous row even when requests write concurrently.
+        return DB::transaction(function () use ($event, $subject, $context, $actorId, $actor, $ip) {
+            DB::select('SELECT pg_advisory_xact_lock(?)', [AuditChain::LOCK_KEY]);
+
+            $row = new AuditEvent([
+                'user_id'        => $actorId,
+                'actor_name'     => $actor?->name,
+                'actor_email'    => $actor?->email,
+                'event'          => $event,
+                'auditable_type' => $subject?->getMorphClass(),
+                'auditable_id'   => $subject?->getKey(),
+                'workspace_id'   => self::workspaceId($subject),
+                'context'        => $context ?: null,
+                'ip'             => $ip ?? (app()->runningInConsole() ? null : request()->ip()),
+                'created_at'     => now(),
+            ]);
+
+            $previous = DB::table('audit_events')->whereNotNull('row_hash')->orderByDesc('id')->value('row_hash');
+            $row->prev_hash = $previous;
+            $row->row_hash = AuditChain::hash($row->getAttributes(), $previous);
+            $row->save();
+
+            return $row;
+        });
     }
 
     /** Derive the workspace an event belongs to, for the admin UI's filter. */

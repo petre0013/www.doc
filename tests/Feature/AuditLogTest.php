@@ -76,7 +76,7 @@ test('structural moves are not logged as edits', function () {
     $workspace = Workspace::factory()->create();
     $document  = Document::factory()->for($workspace)->create();
     $parent    = Document::factory()->for($workspace)->create();
-    AuditEvent::query()->delete(); // query-builder delete: clear setup noise
+    clearAuditEvents(); // query-builder delete: clear setup noise
 
     $this->patch("/documents/{$document->id}/move", [
         'parent_id'    => $parent->id,
@@ -124,7 +124,7 @@ test('restoring a version records the intent with the snapshot id', function () 
 
 test('workspace rename and description edits are audited distinctly', function () {
     login();
-    AuditEvent::query()->delete(); // query-builder delete: clear setup noise
+    clearAuditEvents(); // query-builder delete: clear setup noise
     $workspace = Workspace::factory()->create(['name' => 'Old', 'description' => null]);
 
     // Description-only edit → workspace.updated, with from/to.
@@ -156,7 +156,7 @@ test('workspace rename and description edits are audited distinctly', function (
 
 test('tag create, rename and delete are audited', function () {
     $user = login(); // delete is admin-only
-    AuditEvent::query()->delete(); // query-builder delete: clear setup noise
+    clearAuditEvents(); // query-builder delete: clear setup noise
 
     $this->post('/tags', ['name' => 'Networking']);
     $tag = Tag::firstWhere('name', 'Networking');
@@ -191,7 +191,7 @@ test('a tags-only page save records the tag delta', function () {
     $alpha = Tag::factory()->create(['name' => 'Alpha']);
     $beta  = Tag::factory()->create(['name' => 'Beta']);
     $document->tags()->sync([$alpha->id]);
-    AuditEvent::query()->delete(); // query-builder delete: clear setup noise
+    clearAuditEvents(); // query-builder delete: clear setup noise
 
     $this->patch("/documents/{$document->id}", ['tags' => [$beta->id]]);
 
@@ -208,7 +208,7 @@ test('a save that edits content and tags together logs one document.updated only
     $workspace = Workspace::factory()->create();
     $document  = Document::factory()->for($workspace)->create();
     $tag = Tag::factory()->create();
-    AuditEvent::query()->delete(); // query-builder delete: clear setup noise
+    clearAuditEvents(); // query-builder delete: clear setup noise
 
     $this->patch("/documents/{$document->id}", [
         'title' => 'Retitled',
@@ -252,16 +252,16 @@ test('role changes are audited with old and new role', function () {
         ->and($event->context['to'])->toBe('editor');
 });
 
-test('deleting a user keeps their identity in the event context', function () {
+test('deactivating a user keeps the account and records their identity', function () {
     login();
     $other = User::factory()->create();
     $other->assignRole('viewer');
 
     $this->delete("/admin/users/{$other->id}");
 
-    $event = AuditEvent::firstWhere('event', 'user.deleted');
+    $event = AuditEvent::firstWhere('event', 'user.deactivated');
     expect($event->context['email'])->toBe($other->email)
-        ->and(User::find($other->id))->toBeNull();
+        ->and(User::find($other->id)->isActive())->toBeFalse();
 });
 
 // ── Immutability + retention ──────────────────────────────────────────────────
@@ -276,14 +276,12 @@ test('audit events cannot be updated or deleted through the model', function () 
 
 test('audit:prune removes only events past the retention window', function () {
     login();
-    Audit::record('document.updated');
-    AuditEvent::query()->update(['created_at' => now()->subDays(400)]); // bypasses model guard on purpose
+    AuditEvent::factory()->create(['event' => 'document.updated', 'created_at' => now()->subDays(400)]);
     Audit::record('document.created');
 
     $this->artisan('audit:prune')->assertExitCode(0);
 
-    expect(AuditEvent::count())->toBe(1)
-        ->and(AuditEvent::first()->event)->toBe('document.created');
+    expect(AuditEvent::where('event', '!=', 'audit.pruned')->pluck('event')->all())->toBe(['document.created']);
 });
 
 test('a restore merges the archived audit trail instead of replacing it', function () {
@@ -309,12 +307,11 @@ test('a restore merges the archived audit trail instead of replacing it', functi
 test('audit:prune respects the retention_days setting', function () {
     login();
     \App\Models\Setting::put('audit', ['retention_days' => 30]);
-    Audit::record('document.updated');
-    AuditEvent::query()->update(['created_at' => now()->subDays(31)]);
+    AuditEvent::factory()->create(['event' => 'document.updated', 'created_at' => now()->subDays(31)]);
 
     $this->artisan('audit:prune')->assertExitCode(0);
 
-    expect(AuditEvent::count())->toBe(0);
+    expect(AuditEvent::where('event', '!=', 'audit.pruned')->count())->toBe(0);
 });
 
 test('audit event ip accessor normalizes mapped ipv4 and localhost addresses', function () {

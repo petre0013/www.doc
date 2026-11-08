@@ -20,7 +20,7 @@ export default function ResetPassword({ token, email }) {
     }
 
     const pwMismatch = data.password_confirmation !== '' && data.password !== data.password_confirmation;
-    const canReset = isEmail(data.email) && data.password.length >= 8 && data.password === data.password_confirmation;
+    const canReset = isEmail(data.email) && data.password.length >= 12 && data.password === data.password_confirmation;
 
     return (
         <>

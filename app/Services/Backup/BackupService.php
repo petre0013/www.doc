@@ -130,7 +130,7 @@ class BackupService
         $assets = Asset::orderBy('id')->get()->map->toArray();
 
         // Page attachments: page-scoped files. Restored after documents (FK).
-        $attachments = Attachment::orderBy('id')->get()->map->toArray();
+        $attachments = Attachment::withTrashed()->orderBy('id')->get()->map->toArray();
 
         $this->putJson("{$work}/canonical/workspaces.json", $workspaces);
         $this->putJson("{$work}/canonical/workspace_groups.json", $groups);
@@ -245,7 +245,7 @@ class BackupService
     /** Copy every page-attachment binary into the archive. */
     private function writeAttachments(string $work): void
     {
-        foreach (Attachment::all() as $attachment) {
+        foreach (Attachment::withTrashed()->get() as $attachment) {
             $disk = Storage::disk($attachment->disk);
             if (! $disk->exists($attachment->path)) {
                 continue;

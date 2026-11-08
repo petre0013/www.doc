@@ -63,6 +63,9 @@ class BackupController extends Controller
                                     && ($b->manifest['encryption']['fingerprint'] !== \App\Services\Backup\ArchiveCipher::currentFingerprint()),
                 'restore_status' => $b->restore_status,
                 'restore_error'  => $b->restore_error,
+                'verified_at'    => $b->verified_at,
+                'verify_status'  => $b->verify_status,
+                'verify_error'   => $b->verify_error,
             ]);
 
         return Inertia::render('Settings/Backups', [
@@ -251,6 +254,8 @@ class BackupController extends Controller
         // Pull from wherever it lives (local disk or SMB share) to a temp file
         // and stream that, cleaning it up after send.
         $temp = DestinationFactory::make($backup->disk)->fetch($backup->path);
+
+        Audit::record('backup.downloaded', $backup, ['path' => $backup->path, 'encrypted' => $backup->manifest['encryption']['enabled'] ?? false]);
 
         return response()->download($temp, basename($backup->path))->deleteFileAfterSend();
     }

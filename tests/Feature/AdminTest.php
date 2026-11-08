@@ -14,8 +14,8 @@ test('an admin can create a user with a role', function () {
     $this->post('/admin/users', [
         'name' => 'Casey',
         'email' => 'casey@example.com',
-        'password' => 'supersecret',
-        'password_confirmation' => 'supersecret',
+        'password' => 'supersecret-pw',
+        'password_confirmation' => 'supersecret-pw',
         'role' => 'editor',
     ])->assertRedirect();
 

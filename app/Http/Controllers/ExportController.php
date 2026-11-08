@@ -65,6 +65,8 @@ class ExportController extends Controller
             $ext      = $job->format;
             $basename = $document->slug . '.' . $ext;
 
+            \App\Support\Audit::record('document.exported', $document, ['title' => $document->title, 'format' => $job->format]);
+
             return response()->download(
                 Storage::disk('local')->path($job->result_path),
                 $basename,

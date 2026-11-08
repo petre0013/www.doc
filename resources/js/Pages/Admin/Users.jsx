@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Head, useForm, router, usePage } from '@inertiajs/react';
-import { IconTrash, IconLoader2, IconInfoCircle } from '@tabler/icons-react';
+import { IconUserOff, IconUserCheck, IconLoader2, IconInfoCircle } from '@tabler/icons-react';
 import SettingsLayout from '@/Layouts/SettingsLayout';
 import { Input } from '@/components/ui/input';
 import { PasswordInput } from '@/components/ui/PasswordInput';
@@ -46,10 +46,14 @@ export default function Users() {
     const emailInvalid = f.email !== '' && !isEmail(f.email);
     const passwordsMismatch = f.password_confirmation !== '' && f.password !== f.password_confirmation;
     const canCreate = f.name.trim() !== '' && isEmail(f.email)
-        && f.password.length >= 8 && f.password === f.password_confirmation;
+        && f.password.length >= 12 && f.password === f.password_confirmation;
 
     function changeRole(user, role) {
         router.patch(`/admin/users/${user.id}`, { role }, { preserveScroll: true });
+    }
+
+    function reactivateUser(user) {
+        router.post(`/admin/users/${user.id}/reactivate`, {}, { preserveScroll: true });
     }
 
     function deleteUser() {
@@ -104,6 +108,7 @@ export default function Users() {
                                 <p className="truncate font-medium text-foreground" title={user.name}>
                                     {user.name}
                                     {isSelf && <span className="ml-1.5 text-xs font-normal text-text-tertiary">(you)</span>}
+                                    {!user.active && <span className="ml-1.5 text-xs font-normal text-danger">Deactivated</span>}
                                 </p>
                                 <p className="truncate text-xs text-text-secondary" title={user.email}>{user.email}</p>
                             </div>
@@ -116,12 +121,14 @@ export default function Users() {
 
                             <button
                                 type="button"
-                                onClick={() => setConfirm(user)}
+                                onClick={() => (user.active ? setConfirm(user) : reactivateUser(user))}
                                 disabled={isSelf}
-                                title={isSelf ? 'You cannot delete your own account' : 'Delete user'}
+                                title={!user.active ? 'Reactivate user' : isSelf ? 'You cannot deactivate your own account' : 'Deactivate user'}
                                 className="flex h-8 w-8 items-center justify-center rounded-sm text-text-tertiary transition-colors hover:bg-surface-hover hover:text-danger disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:text-text-tertiary"
                             >
-                                <IconTrash className="h-4 w-4" stroke={1.5} />
+                                {user.active
+                                    ? <IconUserOff className="h-4 w-4" stroke={1.5} />
+                                    : <IconUserCheck className="h-4 w-4" stroke={1.5} />}
                             </button>
                         </div>
                     );
@@ -179,9 +186,9 @@ export default function Users() {
             <ConfirmDialog
                 open={Boolean(confirm)}
                 busy={deleting}
-                title="Delete user"
-                message={confirm ? `Delete ${confirm.name}? This permanently removes their account.` : ''}
-                confirmLabel="Delete user"
+                title="Deactivate user"
+                message={confirm ? `Deactivate ${confirm.name}? They are signed out and can no longer log in. Their history is kept, and you can reactivate them later.` : ''}
+                confirmLabel="Deactivate user"
                 onConfirm={deleteUser}
                 onCancel={() => setConfirm(null)}
             />

@@ -26,7 +26,21 @@ class ProfileController extends Controller
             'avatar_color' => ['nullable', 'string', 'in:sage,sky,amber,rose,purple,slate'],
         ]);
 
-        Auth::user()->update($validated);
+        // Email is the password-reset address, so changing it re-proves identity.
+        $user = Auth::user();
+        if ($validated['email'] !== $user->email) {
+            $request->validate(['current_password' => ['required', 'current_password']]);
+        }
+
+        $before = $user->only('name', 'email');
+        $user->update($validated);
+
+        if ($before['email'] !== $user->email) {
+            \App\Support\Audit::record('user.email_changed', $user, ['from' => $before['email'], 'to' => $user->email]);
+        }
+        if ($before['name'] !== $user->name) {
+            \App\Support\Audit::record('user.renamed', $user, ['from' => $before['name'], 'to' => $user->name]);
+        }
 
         return back()->with('profile_success', true);
     }
@@ -35,7 +49,7 @@ class ProfileController extends Controller
     {
         $request->validate([
             'current_password' => ['required', 'current_password'],
-            'password'         => ['required', 'confirmed', Password::min(8)],
+            'password'         => ['required', 'confirmed', \App\Support\PasswordPolicy::rule()],
         ]);
 
         Auth::user()->update(['password' => $request->input('password')]);

@@ -39,7 +39,10 @@ class AuthController extends Controller
         $this->ensureNotRateLimited($throttleKey, self::MAX_ATTEMPTS);
         $this->ensureNotRateLimited($emailKey, self::MAX_ATTEMPTS_PER_EMAIL);
 
-        if (! Auth::attempt($credentials, $request->boolean('remember'))) {
+        Auth::guard()->setRememberDuration((int) config('auth.remember_minutes'));
+
+        // Same response as a wrong password, so account state isn't disclosed.
+        if (! Auth::attemptWhen($credentials, fn ($user) => $user->isActive(), $request->boolean('remember'))) {
             // A failed attempt counts toward both lockouts: email+IP decays
             // after 60s, the per-email total after 15 minutes.
             RateLimiter::hit($throttleKey);

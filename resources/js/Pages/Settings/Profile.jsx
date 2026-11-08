@@ -42,13 +42,15 @@ export default function ProfilePage({ user }) {
     const [profSuccess, setProfSuccess] = useState(!!flash?.profile_success);
     const [profErrors,  setProfErrors]  = useState({});
 
+    const [emailPw, setEmailPw] = useState('');
+
     function saveProfile(e) {
         e.preventDefault();
         setProfSaving(true);
         setProfErrors({});
-        router.patch('/settings/profile', { name, email }, {
+        router.patch('/settings/profile', { name, email, current_password: emailPw }, {
             preserveScroll: true,
-            onSuccess: () => { setProfSuccess(true); setTimeout(() => setProfSuccess(false), 3000); },
+            onSuccess: () => { setEmailPw(''); setProfSuccess(true); setTimeout(() => setProfSuccess(false), 3000); },
             onError:   (errs) => setProfErrors(errs),
             onFinish:  () => setProfSaving(false),
         });
@@ -118,11 +120,12 @@ export default function ProfilePage({ user }) {
     // password only once all three fields are filled (all are required).
     const profileDirty = name !== user.name || email !== user.email;
     const emailInvalid = email !== '' && !isEmail(email);
-    const profileSavable = profileDirty && isEmail(email);
+    const emailChanged = email !== user.email;
+    const profileSavable = profileDirty && isEmail(email) && (!emailChanged || emailPw !== '');
 
     const pwFilled = currentPw !== '' && newPw !== '' && confirmPw !== '';
     const pwMismatch = confirmPw !== '' && newPw !== confirmPw;
-    const pwSavable = pwFilled && newPw.length >= 8 && newPw === confirmPw;
+    const pwSavable = pwFilled && newPw.length >= 12 && newPw === confirmPw;
 
     // Warn before leaving with unsaved profile (name/email) changes.
     const dirtyRef = useRef(false);
@@ -232,6 +235,21 @@ export default function ProfilePage({ user }) {
                                 ? <FieldError error={profErrors.email} />
                                 : emailInvalid && <p className="mt-1 text-xs text-danger">Enter a valid email address.</p>}
                         </div>
+                        {emailChanged && (
+                            <div>
+                                <label htmlFor="email-current-password" className="mb-1.5 block text-sm font-medium text-foreground">
+                                    Current password
+                                </label>
+                                <PasswordInput
+                                    id="email-current-password"
+                                    value={emailPw}
+                                    onChange={e => setEmailPw(e.target.value)}
+                                    autoComplete="current-password"
+                                />
+                                <p className="mt-1 text-xs text-text-tertiary">Required to change your email address.</p>
+                                <FieldError error={profErrors.current_password} />
+                            </div>
+                        )}
                     </CardContent>
                 </Card>
                 <div className="mb-8 mt-4 flex items-center justify-end">
@@ -244,7 +262,7 @@ export default function ProfilePage({ user }) {
                 <Card>
                     <CardHeader>
                         <CardTitle className="text-sm font-semibold text-foreground">Change password</CardTitle>
-                        <CardDescription>Use a strong password of at least 8 characters.</CardDescription>
+                        <CardDescription>Use a strong password of at least 12 characters.</CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-4">
                         <div>
@@ -267,7 +285,7 @@ export default function ProfilePage({ user }) {
                                 id="new_password"
                                 value={newPw}
                                 onChange={e => setNewPw(e.target.value)}
-                                placeholder="At least 8 characters"
+                                placeholder="At least 12 characters"
                             />
                             <FieldError error={pwErrors.password} />
                         </div>

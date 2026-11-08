@@ -83,7 +83,7 @@ export default function Wizard({ adminConfigured, adminName, instanceName, mail,
     const a = adminForm.data;
     const passwordsMismatch = a.password_confirmation !== '' && a.password !== a.password_confirmation;
     const adminReady = a.name.trim() !== '' && isEmail(a.email)
-        && a.password.length >= 8 && a.password === a.password_confirmation;
+        && a.password.length >= 12 && a.password === a.password_confirmation;
 
     return (
         <>

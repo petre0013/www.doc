@@ -49,6 +49,9 @@ export default function TemplatesIndex({ templates }) {
                     </p>
                 </div>
                 <div className="flex shrink-0 items-center gap-1.5 self-center">
+                    <Button variant="outline" onClick={() => router.post('/templates/nis2-pack', {}, { preserveScroll: true })}>
+                        Add NIS2 templates
+                    </Button>
                     <Button onClick={() => setShowForm(true)}>
                         <IconPlus stroke={1.5} />
                         New template

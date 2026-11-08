@@ -37,8 +37,8 @@ test('the wizard captures the admin then creates and signs them in on finish', f
     $this->post('/setup/admin', [
         'name'                  => 'Ada Lovelace',
         'email'                 => 'ada@example.com',
-        'password'              => 'supersecret',
-        'password_confirmation' => 'supersecret',
+        'password'              => 'supersecret-pw',
+        'password_confirmation' => 'supersecret-pw',
     ])->assertRedirect()->assertSessionHasNoErrors();
     expect(User::where('email', 'ada@example.com')->exists())->toBeFalse();
     expect(Setup::isComplete())->toBeFalse();
@@ -63,8 +63,8 @@ test('finishing setup seeds a Welcome workspace, an intro page and nested guides
     $this->post('/setup/admin', [
         'name'                  => 'Ada Lovelace',
         'email'                 => 'ada@example.com',
-        'password'              => 'supersecret',
-        'password_confirmation' => 'supersecret',
+        'password'              => 'supersecret-pw',
+        'password_confirmation' => 'supersecret-pw',
     ])->assertRedirect();
     $this->post('/setup/complete')->assertRedirect(route('workspaces.index'));
 
@@ -148,8 +148,8 @@ test('setup write actions are forbidden once the instance is set up', function (
     $this->post('/setup/admin', [
         'name'                  => 'Late',
         'email'                 => 'late@example.com',
-        'password'              => 'supersecret',
-        'password_confirmation' => 'supersecret',
+        'password'              => 'supersecret-pw',
+        'password_confirmation' => 'supersecret-pw',
     ])->assertForbidden();
     expect(User::where('email', 'late@example.com')->exists())->toBeFalse();
 });

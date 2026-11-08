@@ -21,6 +21,7 @@ test('a user can update their name and email', function () {
     $this->patch('/settings/profile', [
         'name' => 'Renamed Person',
         'email' => 'renamed@example.com',
+        'current_password' => 'password',
     ])->assertRedirect();
 
     expect(auth()->user()->fresh())

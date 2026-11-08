@@ -4,6 +4,12 @@ use App\Models\User;
 
 return [
 
+    // How long "Keep me signed in" lasts, in minutes.
+    'remember_minutes' => (int) env('REMEMBER_MINUTES', 10080),
+
+    // Reject passwords found in known breaches (calls the Have I Been Pwned API).
+    'password_breach_check' => (bool) env('PASSWORD_BREACH_CHECK', false),
+
     /*
     |--------------------------------------------------------------------------
     | Authentication Defaults

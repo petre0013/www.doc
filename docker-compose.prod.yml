@@ -12,7 +12,7 @@
 name: wwwdoc
 
 x-app: &app-image
-  image: petre0013/www.doc-app:latest
+  image: petre0013/www.doc-app:${WWWDOC_VERSION:-latest}
   env_file: .env
   environment: &app-env
     APP_ENV: production
@@ -38,7 +38,7 @@ x-app: &app-image
 
 services:
   db:
-    image: postgres:16-alpine
+    image: postgres:16-alpine@sha256:aa6cb33cf4c19c765cefcf48d96176258800870a9a1e930ad126200f9d825139
     environment:
       POSTGRES_DB: ${DB_DATABASE:-wwwdoc}
       POSTGRES_USER: ${DB_USERNAME:-wwwdoc}
@@ -52,7 +52,7 @@ services:
     logging: *default-logging
 
   redis:
-    image: redis:7-alpine
+    image: redis:7-alpine@sha256:c5d34a98396a4775e223c74e929162c35c5a2182901ba26b50ade939941ce14b
     restart: unless-stopped
     logging: *default-logging
 
@@ -89,9 +89,9 @@ services:
 
   web:
     # nginx with the build/ assets baked in (target: web). It serves static
-    # files and proxies PHP to app:9000. Only uploaded assets are shared, via
-    # the storage volume reached through the public/storage symlink.
-    image: petre0013/www.doc-web:latest
+    # files and proxies PHP to app:9000, including uploaded images, which
+    # require a signed-in session.
+    image: petre0013/www.doc-web:${WWWDOC_VERSION:-latest}
     environment:
       # Upstream proxies allowed to report the client IP (X-Forwarded-For).
       # Empty = nginx is the edge and the connecting address is the client.
@@ -100,8 +100,6 @@ services:
       # 172.17.0.1, or the proxy's LAN IP) — otherwise every user appears to
       # come from the proxy's IP in the audit log.
       REAL_IP_FROM: ${REAL_IP_FROM:-}
-    volumes:
-      - app-storage:/var/www/html/storage:ro
     ports: ["8080:80"]
     healthcheck:
       # /up is Laravel's health route: a 200 proves nginx, php-fpm and the app
