@@ -45,6 +45,8 @@ php artisan migrate --force --isolated
 # Belt-and-suspenders: make sure the writable storage the app touches is owned
 # by www-data — the user every process below now runs as. Idempotent and cheap.
 chown -R www-data:www-data storage/app/private 2>/dev/null || true
+# An artisan failure above runs as root and can leave the log unwritable by the app.
+chown -R www-data:www-data storage/logs 2>/dev/null || true
 
 # Drop from root (needed for the setup above) to www-data for the actual
 # long-running process, so files it writes at runtime (exports, backups, logs)

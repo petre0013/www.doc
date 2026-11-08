@@ -6,7 +6,7 @@ const authFile = 'playwright/.auth/admin.json';
 // password — override with E2E_EMAIL / E2E_PASSWORD (the seeder uses "password"):
 //   E2E_PASSWORD=password APP_URL=http://localhost:8000 npx playwright test
 const EMAIL = process.env.E2E_EMAIL || 'admin@example.com';
-const PASSWORD = process.env.E2E_PASSWORD || 'password123';
+const PASSWORD = process.env.E2E_PASSWORD || 'password-1234';
 
 setup('complete setup wizard and authenticate', async ({ page }) => {
   // A fresh database redirects everything to /setup

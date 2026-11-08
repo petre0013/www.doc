@@ -39,7 +39,10 @@ async function pasteBitmap(page, { html }) {
   await page.waitForFunction(() => {
     const imgs = Array.from(document.querySelectorAll('.tiptap-edit-area img'));
     return imgs.length > 0
-      && imgs.every(i => !(i.getAttribute('src') ?? '').startsWith('blob:'));
+      && imgs.every(i => {
+        const src = i.getAttribute('src') ?? '';
+        return !src.startsWith('blob:') && !src.startsWith('data:');
+      });
   }, null, { timeout: 15000 });
 
   return page.evaluate(() =>

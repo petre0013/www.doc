@@ -25,8 +25,7 @@ function Details({ documentId, control, options, onDone }) {
 
     function save(e) {
         e.preventDefault();
-        const send = control ? router.patch : router.post;
-        send(`/documents/${documentId}/control`, { ...form, doc_number: form.doc_number || null }, {
+        router[control ? 'patch' : 'post'](`/documents/${documentId}/control`, { ...form, doc_number: form.doc_number || null }, {
             preserveScroll: true,
             onSuccess: onDone,
             onError: setErrors,
