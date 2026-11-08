@@ -60,6 +60,15 @@ class DocumentController extends Controller
             'outgoingLinks.target:id,title,slug,workspace_id',
         ]);
 
+        // Readers of a controlled page get the approved version, not the working
+        // draft. In memory only: this request never saves the document.
+        $approved = $document->control?->versionForReader(Auth::user());
+        if ($approved) {
+            $document->title = $approved->title;
+            $document->content = $approved->content;
+            $document->content_html = $approved->content_html;
+        }
+
         // A link into a restricted workspace shows as unresolved to non-members.
         foreach ($document->outgoingLinks as $link) {
             if ($link->target && ! Auth::user()->canAccessWorkspace($link->target->workspace_id)) {
@@ -85,6 +94,11 @@ class DocumentController extends Controller
 
         return Inertia::render('Documents/Show', [
             'document'     => $document,
+            'control'      => \App\Support\DocumentControlView::for($document, Auth::user(), $approved !== null),
+            'controlOptions' => (Auth::user()->can('update', $document) || $document->control?->isManagedBy(Auth::user())) ? [
+                'users'           => \App\Support\DocumentControlView::eligibleUsers($document),
+                'classifications' => \App\Models\DocumentControl::CLASSIFICATIONS,
+            ] : null,
             'isStarred'    => DB::table('document_user')
                 ->where('user_id', Auth::id())
                 ->where('document_id', $document->id)
@@ -173,11 +187,12 @@ class DocumentController extends Controller
     {
         $this->authorize('view', $document);
 
-        $plain = \App\Support\TipTap::plainText($document->content);
+        $approved = $document->control?->versionForReader(Auth::user());
+        $plain = \App\Support\TipTap::plainText($approved?->content ?? $document->content);
 
         return response()->json([
             'id'      => $document->id,
-            'title'   => $document->title,
+            'title'   => $approved?->title ?? $document->title,
             'excerpt' => mb_strimwidth(trim($plain), 0, 220, '…'),
         ]);
     }

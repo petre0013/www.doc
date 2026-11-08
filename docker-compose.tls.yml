@@ -21,6 +21,7 @@ x-app: &app-image
     REDIS_HOST: redis
     QUEUE_CONNECTION: redis
     SESSION_DRIVER: redis
+    SESSION_SECURE_COOKIE: "true"
     CACHE_STORE: redis
     APP_KEY: ${APP_KEY:-}
     APP_URL: ${APP_URL:-}

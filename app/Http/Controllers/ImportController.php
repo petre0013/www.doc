@@ -46,6 +46,7 @@ class ImportController extends Controller
         }
 
         $file   = $request->file('file');
+        app(\App\Support\ClamAv::class)->assertClean($file->getRealPath());
         $format = strtolower($file->getClientOriginalExtension());
 
         $title = trim((string) ($data['title'] ?? ''));

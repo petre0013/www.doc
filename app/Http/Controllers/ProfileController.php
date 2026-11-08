@@ -52,7 +52,7 @@ class ProfileController extends Controller
             'password'         => ['required', 'confirmed', \App\Support\PasswordPolicy::rule()],
         ]);
 
-        Auth::user()->update(['password' => $request->input('password')]);
+        Auth::user()->forceFill(['password' => $request->input('password'), 'must_change_password' => false])->save();
 
         \App\Support\Audit::record('auth.password_changed', Auth::user());
 

@@ -68,12 +68,29 @@ class HandleInertiaRequests extends Middleware
             // acknowledging. Manual runs are excluded: the admin is watching and
             // gets a toast, so a persistent banner would just be noise.
             'backupNotices' => $this->backupNotices($request),
+            'backupWarning' => $this->backupWarning($request),
             // Slim, admin-only nudge for the Settings "Updates" tab dot: just
             // whether a newer release is available. The tab's own controller
             // ships the full status; this keeps every response light. null for
             // non-admins — the check is an admin concern, never surfaced pre-auth.
             'updateStatus' => $this->updateStatus($request),
         ];
+    }
+
+    /** Admin banner until backups are scheduled and encrypted. */
+    private function backupWarning(Request $request): ?string
+    {
+        if (! $request->user()?->hasRole('admin')) {
+            return null;
+        }
+
+        $settings = \App\Support\BackupSettings::get();
+
+        return match (true) {
+            ! $settings['enabled']    => 'Scheduled backups are off. Turn them on in Settings > Backups.',
+            ! $settings['encryption'] => 'Backups are not encrypted. Turn on encryption in Settings > Backups.',
+            default                   => null,
+        };
     }
 
     private function updateStatus(Request $request): ?array

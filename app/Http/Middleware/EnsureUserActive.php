@@ -20,6 +20,10 @@ class EnsureUserActive
             return redirect()->route('login');
         }
 
+        if ($request->user()?->must_change_password && ! $request->routeIs('settings.*', 'logout')) {
+            return redirect()->route('settings.profile')->with('error', 'Your password is too short. Please choose one with at least 12 characters.');
+        }
+
         return $next($request);
     }
 }

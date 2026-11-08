@@ -168,6 +168,11 @@ class Document extends Model
         return $query->whereIn($query->qualifyColumn('workspace_id'), Workspace::withTrashed()->accessibleBy($user)->select('workspaces.id'));
     }
 
+    public function control(): \Illuminate\Database\Eloquent\Relations\HasOne
+    {
+        return $this->hasOne(DocumentControl::class);
+    }
+
     public function attachments(): HasMany
     {
         return $this->hasMany(Attachment::class)->orderBy('position');

@@ -34,7 +34,7 @@ class AuditChain
             $row['auditable_type'] ?? null,
             isset($row['auditable_id']) ? (int) $row['auditable_id'] : null,
             isset($row['workspace_id']) ? (int) $row['workspace_id'] : null,
-            self::sorted($context),
+            self::canonical($context),
             $row['ip'] ?? null,
             (string) $row['created_at'],
         ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE));
@@ -84,7 +84,7 @@ class AuditChain
     }
 
     /** jsonb does not preserve key order, so hash a canonical ordering. */
-    private static function sorted(mixed $value): mixed
+    public static function canonical(mixed $value): mixed
     {
         if (! is_array($value)) {
             return $value;
@@ -94,6 +94,6 @@ class AuditChain
             ksort($value);
         }
 
-        return array_map(self::sorted(...), $value);
+        return array_map(self::canonical(...), $value);
     }
 }

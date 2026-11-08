@@ -8,6 +8,7 @@ use App\Models\Workspace;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 /**
  * Single entry point for the append-only audit trail. Call from controllers,
@@ -58,9 +59,24 @@ class Audit
             $row->prev_hash = $previous;
             $row->row_hash = AuditChain::hash($row->getAttributes(), $previous);
             $row->save();
+            self::stream($row);
 
             return $row;
         });
+    }
+
+    /** A logging outage must never block the action being audited. */
+    private static function stream(AuditEvent $row): void
+    {
+        if (! config('logging.channels.audit_syslog.handler_with.host')) {
+            return;
+        }
+
+        try {
+            Log::channel('audit_syslog')->info('audit', $row->only('id', 'event', 'user_id', 'actor_email', 'ip', 'workspace_id', 'context', 'row_hash', 'created_at'));
+        } catch (\Throwable) {
+            // The event is already stored; the off-host copy is best effort.
+        }
     }
 
     /** Derive the workspace an event belongs to, for the admin UI's filter. */

@@ -119,10 +119,20 @@ export default function Users() {
                                 onChange={(role) => changeRole(user, role)}
                             />
 
+                            {!user.active && !user.anonymised && (
+                                <button
+                                    type="button"
+                                    onClick={() => { if (window.confirm(`Permanently remove ${user.name}'s name and email from this account? This can't be undone.`)) router.post(`/admin/users/${user.id}/anonymise`, {}, { preserveScroll: true }); }}
+                                    className="text-xs text-text-tertiary underline hover:text-danger"
+                                >
+                                    Anonymise
+                                </button>
+                            )}
+
                             <button
                                 type="button"
                                 onClick={() => (user.active ? setConfirm(user) : reactivateUser(user))}
-                                disabled={isSelf}
+                                disabled={isSelf || user.anonymised}
                                 title={!user.active ? 'Reactivate user' : isSelf ? 'You cannot deactivate your own account' : 'Deactivate user'}
                                 className="flex h-8 w-8 items-center justify-center rounded-sm text-text-tertiary transition-colors hover:bg-surface-hover hover:text-danger disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:text-text-tertiary"
                             >

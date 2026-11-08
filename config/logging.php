@@ -52,6 +52,16 @@ return [
 
     'channels' => [
 
+        // Off-host copy of the audit trail (see App\Support\Audit).
+        'audit_syslog' => [
+            'driver'       => 'monolog',
+            'handler'      => Monolog\Handler\SyslogUdpHandler::class,
+            'handler_with' => [
+                'host' => env('AUDIT_SYSLOG_HOST'),
+                'port' => (int) env('AUDIT_SYSLOG_PORT', 514),
+            ],
+        ],
+
         'stack' => [
             'driver' => 'stack',
             'channels' => explode(',', (string) env('LOG_STACK', 'single')),

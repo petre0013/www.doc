@@ -24,6 +24,7 @@ import ConfirmDialog from '@/components/ui/ConfirmDialog';
 import ConflictDialog from '@/components/documents/ConflictDialog';
 import { useUnsavedChangesGuard } from '@/hooks/useUnsavedChangesGuard';
 import { can } from '@/lib/permissions';
+import DocumentControlPanel from '@/components/documents/DocumentControlPanel';
 import { formatDate, timeAgo } from '@/lib/date';
 import { csrfToken } from '@/lib/utils';
 
@@ -472,7 +473,7 @@ function ContentsIndex({ pages, canCreate, onAddPage, hasIntro }) {
     );
 }
 
-export default function DocumentShow({ document, isStarred = false, versionsCount, children: childPages = [], breadcrumbs = [], backlinks = [], allTags = [], allDocuments = [], workspaces = [], folders = [] }) {
+export default function DocumentShow({ document, isStarred = false, versionsCount, children: childPages = [], breadcrumbs = [], backlinks = [], allTags = [], allDocuments = [], workspaces = [], folders = [], control = null, controlOptions = null }) {
     const { auth } = usePage().props;
     const perms = can(auth);
     const [isEditing, setIsEditing]       = useState(
@@ -1013,6 +1014,8 @@ export default function DocumentShow({ document, isStarred = false, versionsCoun
                     )}
                 </div>
             )}
+
+            {!isEditing && <DocumentControlPanel documentId={document.id} control={control} options={controlOptions} />}
 
             {/* Tags — read mode */}
             {!isEditing && document.tags.length > 0 && (

@@ -134,6 +134,11 @@ class BackupService
 
         $this->putJson("{$work}/canonical/workspaces.json", $workspaces);
         $this->putJson("{$work}/canonical/workspace_groups.json", $groups);
+        foreach (['register_items', 'register_links', 'document_acknowledgements'] as $table) {
+            $this->putJson("{$work}/canonical/{$table}.json", DB::table($table)->get()->map(fn ($row) => (array) $row));
+        }
+        $this->putJson("{$work}/canonical/document_controls.json", DB::table('document_controls')->get()->map(fn ($row) => (array) $row));
+        $this->putJson("{$work}/canonical/document_control_events.json", DB::table('document_control_events')->get()->map(fn ($row) => (array) $row));
         $this->putJson("{$work}/canonical/workspace_user.json", DB::table('workspace_user')->get()->map(fn ($row) => (array) $row));
         $this->putJson("{$work}/canonical/document_folders.json", $folders);
         $this->putJson("{$work}/canonical/tags.json", $tags);

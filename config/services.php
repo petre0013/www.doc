@@ -2,6 +2,11 @@
 
 return [
 
+    'clamav' => [
+        'host' => env('CLAMAV_HOST'),
+        'port' => (int) env('CLAMAV_PORT', 3310),
+    ],
+
     /*
     |--------------------------------------------------------------------------
     | Third Party Services

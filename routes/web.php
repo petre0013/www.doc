@@ -7,13 +7,16 @@ use App\Http\Controllers\Admin\UpdateSettingsController as AdminUpdateSettingsCo
 use App\Http\Controllers\Admin\UserController as AdminUserController;
 use App\Http\Controllers\AssetController;
 use App\Http\Controllers\AttachmentController;
+use App\Http\Controllers\AuditPackController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\CompareController;
+use App\Http\Controllers\DocumentControlController;
 use App\Http\Controllers\DocumentController;
 use App\Http\Controllers\DocumentFolderController;
 use App\Http\Controllers\ExportController;
 use App\Http\Controllers\ImportController;
 use App\Http\Controllers\PasswordResetController;
+use App\Http\Controllers\RegisterController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\SearchController;
 use App\Http\Controllers\SetupController;
@@ -39,6 +42,9 @@ Route::pattern('job', '[0-9]+');
 Route::pattern('user', '[0-9]+');
 Route::pattern('backup', '[0-9]+');
 Route::pattern('attachment', '[0-9]+');
+Route::pattern('item', '[0-9]+');
+Route::pattern('link', '[0-9]+');
+Route::pattern('type', implode('|', \App\Support\Registers::types()));
 
 // First-run installation wizard. No auth — the operator hasn't created an
 // account yet. EnsureSetupComplete funnels everything here until it's finished,
@@ -84,6 +90,7 @@ Route::middleware(['auth', 'auth.session', 'active'])->group(function () {
         Route::patch('users/{user}', [AdminUserController::class, 'update'])->name('users.update');
         Route::delete('users/{user}', [AdminUserController::class, 'destroy'])->name('users.destroy');
         Route::post('users/{user}/reactivate', [AdminUserController::class, 'reactivate'])->name('users.reactivate');
+        Route::post('users/{user}/anonymise', [AdminUserController::class, 'anonymise'])->name('users.anonymise');
 
         // Email (SMTP) settings — the global mailer config (password resets etc.).
         Route::get('settings/mail', [AdminMailSettingsController::class, 'index'])->name('settings.mail');
@@ -115,6 +122,29 @@ Route::middleware(['auth', 'auth.session', 'active'])->group(function () {
         Route::get('audit/export', [AdminAuditController::class, 'export'])->name('audit.export');
         Route::patch('audit/settings', [AdminAuditController::class, 'updateSettings'])->name('audit.settings');
     });
+
+    // Document control: register, per-page details, and the approval workflow.
+    Route::get('document-control', [DocumentControlController::class, 'index'])->name('document-control.index');
+    Route::post('documents/{document}/control', [DocumentControlController::class, 'store'])->name('document-control.store');
+    Route::patch('documents/{document}/control', [DocumentControlController::class, 'update'])->name('document-control.update');
+    foreach (['submit', 'approve', 'reject', 'review', 'retire'] as $step) {
+        Route::post("documents/{document}/control/{$step}", [DocumentControlController::class, $step])->name("document-control.{$step}");
+    }
+
+    Route::post('documents/{document}/control/acknowledge', [DocumentControlController::class, 'acknowledge'])->name('document-control.acknowledge');
+    Route::get('document-control/audit-pack', [AuditPackController::class, 'download'])->name('document-control.audit-pack');
+
+    // NIS2 registers. {type} is limited to the types defined in App\Support\Registers.
+    Route::get('registers', [RegisterController::class, 'dashboard'])->name('registers.dashboard');
+    Route::post('registers/requirement/install', [RegisterController::class, 'installCatalogue'])->name('registers.install');
+    Route::post('registers/risk/{item}/accept', [RegisterController::class, 'acceptRisk'])->name('registers.accept');
+    Route::get('registers/{type}', [RegisterController::class, 'index'])->name('registers.index');
+    Route::post('registers/{type}', [RegisterController::class, 'store'])->name('registers.store');
+    Route::get('registers/{type}/{item}', [RegisterController::class, 'show'])->name('registers.show');
+    Route::patch('registers/{type}/{item}', [RegisterController::class, 'update'])->name('registers.update');
+    Route::delete('registers/{type}/{item}', [RegisterController::class, 'destroy'])->name('registers.destroy');
+    Route::post('registers/{type}/{item}/links', [RegisterController::class, 'link'])->name('registers.link');
+    Route::delete('registers/{type}/{item}/links/{link}', [RegisterController::class, 'unlink'])->name('registers.unlink');
 
     // Page-to-page comparison. Declared before the resource so 'compare' isn't
     // read as a {document} id (the [0-9]+ pattern already prevents that, but

@@ -24,7 +24,7 @@ class UserController extends Controller
     {
         $users = User::query()
             ->orderBy('name')
-            ->get(['id', 'name', 'email', 'avatar_color', 'deactivated_at'])
+            ->get(['id', 'name', 'email', 'avatar_color', 'deactivated_at', 'anonymised_at'])
             ->map(fn (User $user) => [
                 'id'           => $user->id,
                 'name'         => $user->name,
@@ -32,6 +32,7 @@ class UserController extends Controller
                 'avatar_color' => $user->avatar_color,
                 'role'         => $user->getRoleNames()->first(),
                 'active'       => $user->isActive(),
+                'anonymised'   => $user->anonymised_at !== null,
             ]);
 
         return Inertia::render('Admin/Users', [
@@ -109,8 +110,37 @@ class UserController extends Controller
         return back()->with('success', 'User deactivated.');
     }
 
+    /**
+     * GDPR erasure: remove identifying details from a deactivated account. Audit
+     * events and sign-offs keep the name recorded at the time, as security and
+     * compliance evidence, until retention removes them.
+     */
+    public function anonymise(User $user): RedirectResponse
+    {
+        if ($user->isActive()) {
+            return back()->with('error', 'Deactivate this account first.');
+        }
+
+        $user->forceFill([
+            'name'           => "Former user #{$user->id}",
+            'email'          => "anonymised-{$user->id}@invalid.example",
+            'password'       => \Illuminate\Support\Str::random(64),
+            'remember_token' => null,
+            'avatar_color'   => null,
+            'anonymised_at'  => now(),
+        ])->save();
+
+        Audit::record('user.anonymised', $user, ['user_id' => $user->id]);
+
+        return back()->with('success', 'Account anonymised.');
+    }
+
     public function reactivate(User $user): RedirectResponse
     {
+        if ($user->anonymised_at) {
+            return back()->with('error', 'An anonymised account cannot be reactivated.');
+        }
+
         $user->forceFill(['deactivated_at' => null])->save();
 
         Audit::record('user.reactivated', $user, ['name' => $user->name, 'email' => $user->email]);

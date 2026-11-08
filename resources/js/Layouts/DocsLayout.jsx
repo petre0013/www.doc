@@ -27,6 +27,8 @@ function NavLink({ href, children }) {
 const NAV_LINKS = [
     { label: 'Workspaces', href: '/workspaces' },
     { label: 'Tags',       href: '/tags' },
+    { label: 'Document control', href: '/document-control' },
+    { label: 'Registers', href: '/registers', editorsOnly: true },
 ];
 
 // Pages render DocsLayout inline (no persistent Inertia layout), so it
@@ -58,7 +60,7 @@ function noticeText(n) {
 // (data-width on <html>, set in Settings › Profile › Appearance). Document
 // view/editor pass it; admin and list pages stay boxed by design.
 export default function DocsLayout({ children, wideable = false }) {
-    const { auth, flash, backupNotices = [] } = usePage().props;
+    const { auth, flash, backupNotices = [], backupWarning = null } = usePage().props;
     const [searchQ, setSearchQ] = useState('');
     const [mobileNav, setMobileNav] = useState(false);
 
@@ -129,7 +131,7 @@ export default function DocsLayout({ children, wideable = false }) {
                             </span>
                         </Link>
                         <nav className="hidden items-center gap-0.5 sm:flex">
-                            {NAV_LINKS.map((link) => (
+                            {NAV_LINKS.filter((l) => !l.editorsOnly || (auth?.user?.roles ?? []).some((r) => r === 'admin' || r === 'editor')).map((link) => (
                                 <NavLink key={link.href} href={link.href}>{link.label}</NavLink>
                             ))}
                         </nav>
@@ -182,7 +184,7 @@ export default function DocsLayout({ children, wideable = false }) {
                 {/* Mobile nav — revealed by the hamburger on small screens */}
                 {mobileNav && (
                     <nav className="border-t border-border px-3 py-2 sm:hidden">
-                        {NAV_LINKS.map((link) => (
+                        {NAV_LINKS.filter((l) => !l.editorsOnly || (auth?.user?.roles ?? []).some((r) => r === 'admin' || r === 'editor')).map((link) => (
                             <Link
                                 key={link.href}
                                 href={link.href}
@@ -195,6 +197,13 @@ export default function DocsLayout({ children, wideable = false }) {
                     </nav>
                 )}
             </header>
+
+            {backupWarning && (
+                <div className="flex items-center gap-2 border-b border-border bg-warning-surface px-4 py-2 text-sm text-warning-text">
+                    <IconAlertTriangle className="h-4 w-4 shrink-0" stroke={1.5} />
+                    {backupWarning}
+                </div>
+            )}
 
             {/* Persistent, dismissable backup notices (admin-only; shared prop).
                 Survive refreshes until acknowledged — the durable counterpart to

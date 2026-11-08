@@ -10,6 +10,7 @@ use App\Support\BackupSettings;
 use App\Support\SearchVector;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use ZipArchive;
 
@@ -81,6 +82,17 @@ class RestoreService
                 // Page templates (standalone; absent from pre-1.3 archives → []).
                 $this->insert('templates', $this->scrubUsers($this->jsonArray($work, 'templates'), ['created_by_id']));
 
+                // Versions exist by now, which the control rows point at. Sign-offs
+                // are append-only like the audit trail: merged, never wiped.
+                $this->insert('document_controls', $this->scrubUsers($this->jsonArray($work, 'document_controls'), ['owner_id', 'approver_id', 'submitted_by_id']));
+                $this->mergeMissing('document_control_events', $this->jsonArray($work, 'document_control_events'));
+                $this->mergeMissing('document_acknowledgements', $this->jsonArray($work, 'document_acknowledgements'));
+                $this->insert('register_items', $this->scrubUsers(array_map(
+                    fn (array $row) => array_merge($row, ['data' => is_string($row['data']) ? json_decode($row['data'], true) : $row['data']]),
+                    $this->jsonArray($work, 'register_items'),
+                ), ['owner_id']));
+                $this->insert('register_links', $this->jsonArray($work, 'register_links'));
+
                 // Audit trail is append-only even across restores: never wiped,
                 // archive rows are MERGED in (insert-missing by id).
                 $this->mergeAuditEvents($work);
@@ -135,6 +147,8 @@ class RestoreService
                 }
                 $rows += $actual;
             }
+
+            $this->trialLoad($work);
 
             return ['files' => count($manifest['files']), 'rows' => $rows];
         } finally {
@@ -228,7 +242,7 @@ class RestoreService
         // documents; documents reference workspaces and document_folders;
         // document_folders and workspaces reference workspace_groups. assets/
         // templates are standalone.
-        foreach (['links', 'document_versions', 'taggables', 'attachments', 'documents', 'document_folders', 'tags', 'workspaces', 'workspace_groups', 'assets', 'templates'] as $table) {
+        foreach (['register_links', 'register_items', 'links', 'document_versions', 'taggables', 'attachments', 'documents', 'document_folders', 'tags', 'workspaces', 'workspace_groups', 'assets', 'templates'] as $table) {
             DB::table($table)->delete();
         }
     }
@@ -357,10 +371,63 @@ class RestoreService
         $flush();
     }
 
+    /**
+     * Load the archive into throwaway copies of the main tables, proving its rows
+     * fit today's schema without touching live data. Always rolled back.
+     */
+    private function trialLoad(string $work): void
+    {
+        $sources = [
+            'workspaces' => 'workspaces', 'document_folders' => 'document_folders', 'tags' => 'tags',
+            'links' => 'links', 'assets' => 'assets', 'attachments' => 'attachments', 'templates' => 'templates',
+            'document_controls' => 'document_controls', 'documents' => 'documents', 'document_versions' => 'versions',
+        ];
+        $schema = DB::selectOne('SELECT current_schema() AS name')->name;
+        $columns = array_map(fn (string $table) => array_flip(Schema::getColumnListing($table)), array_combine(array_keys($sources), array_keys($sources)));
+
+        DB::beginTransaction();
+
+        try {
+            DB::statement('CREATE SCHEMA restore_check');
+            foreach ($sources as $table => $base) {
+                DB::statement("CREATE TABLE restore_check.{$table} (LIKE \"{$schema}\".{$table} INCLUDING DEFAULTS)");
+            }
+            DB::statement("SET LOCAL search_path TO restore_check, \"{$schema}\"");
+
+            foreach ($sources as $table => $base) {
+                $batch = [];
+                foreach ($this->canonicalRows($work, $base) as $row) {
+                    $batch[] = $this->encodeJsonColumns(array_intersect_key($row, $columns[$table]));
+                    if (count($batch) >= 200) {
+                        DB::table($table)->insert($batch);
+                        $batch = [];
+                    }
+                }
+                if ($batch) {
+                    DB::table($table)->insert($batch);
+                }
+            }
+        } finally {
+            DB::rollBack();
+        }
+    }
+
+    /** Insert only the rows whose id isn't already present. */
+    private function mergeMissing(string $table, array $rows): void
+    {
+        foreach (array_chunk($rows, 200) as $chunk) {
+            $existing = array_flip(DB::table($table)->whereIn('id', array_column($chunk, 'id'))->pluck('id')->all());
+            $missing = array_values(array_filter($chunk, fn (array $row) => ! isset($existing[$row['id']])));
+            if ($missing) {
+                DB::table($table)->insert($missing);
+            }
+        }
+    }
+
     /** Push Postgres id sequences past the highest restored id on each table. */
     private function resyncSequences(): void
     {
-        foreach (['workspace_groups', 'workspaces', 'document_folders', 'documents', 'document_versions', 'tags', 'links', 'assets', 'attachments', 'templates', 'audit_events'] as $table) {
+        foreach (['workspace_groups', 'workspaces', 'document_folders', 'documents', 'document_versions', 'tags', 'links', 'assets', 'attachments', 'templates', 'audit_events', 'document_controls', 'document_control_events', 'document_acknowledgements', 'register_items', 'register_links'] as $table) {
             DB::statement(
                 "SELECT setval(pg_get_serial_sequence(?, 'id'), COALESCE((SELECT MAX(id) FROM {$table}), 1))",
                 [$table],

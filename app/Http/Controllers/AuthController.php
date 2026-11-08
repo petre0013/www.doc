@@ -59,6 +59,11 @@ class AuthController extends Controller
         RateLimiter::clear($emailKey);
         $request->session()->regenerate();
 
+        // Passwords are hashed, so sign-in is the only moment a short one is visible.
+        if (mb_strlen($credentials['password']) < \App\Support\PasswordPolicy::MIN_LENGTH) {
+            $request->user()->forceFill(['must_change_password' => true])->save();
+        }
+
         \App\Support\Audit::record('auth.login', $request->user());
 
         return redirect()->intended(route('workspaces.index'));

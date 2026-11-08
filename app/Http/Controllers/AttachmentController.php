@@ -43,6 +43,7 @@ class AttachmentController extends Controller
         ]);
 
         $file    = $request->file('file');
+        app(\App\Support\ClamAv::class)->assertClean($file->getRealPath());
         $content = file_get_contents($file->getRealPath());
         $ext     = $file->getClientOriginalExtension() ?: ($file->guessExtension() ?? 'bin');
         $path    = 'attachments/'.Str::ulid().'.'.$ext;

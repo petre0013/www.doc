@@ -5,6 +5,10 @@ use Pdo\Mysql;
 
 return [
 
+    // Postgres text-search dictionary (english, spanish, german, ...).
+    // Run `php artisan search:reindex` after changing it.
+    'search_language' => env('DB_SEARCH_LANGUAGE', 'english'),
+
     /*
     |--------------------------------------------------------------------------
     | Default Database Connection Name

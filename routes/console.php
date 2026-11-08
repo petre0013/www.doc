@@ -22,6 +22,10 @@ Schedule::command('audit:prune')->daily();
 Schedule::command('audit:verify')->daily();
 Schedule::command('backup:verify')->weekly();
 
+// Daily digest of due work; incident deadlines are checked every hour.
+Schedule::command('reminders:send')->dailyAt('07:00');
+Schedule::command('reminders:send', ['--incidents'])->hourly();
+
 // Refresh the latest-release cache for the outdated-version notice. A no-op
 // unless an admin opted in (App\Support\UpdateCheck), and silent when offline;
 // daily is frequent enough and avoids hammering the GitHub API.
