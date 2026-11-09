@@ -117,7 +117,7 @@ docker compose -f docker-compose.prod.yml up -d
 
 Open `APP_URL` in a browser and finish the setup wizard right away.
 
-Want HTTPS without a reverse proxy, or deploying with Komodo / Portainer?
+Want HTTPS behind a reverse proxy, or deploying with Komodo / Portainer?
 See the **[Installation Guide](docs/installation.md)**.
 
 ## Development

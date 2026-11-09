@@ -96,11 +96,12 @@ services:
       # Upstream proxies allowed to report the client IP (X-Forwarded-For).
       # Empty = nginx is the edge and the connecting address is the client.
       # If you put a reverse proxy in front, set REAL_IP_FROM in .env to its
-      # address as seen from this container (often the Docker gateway, e.g.
-      # 172.17.0.1, or the proxy's LAN IP) — otherwise every user appears to
-      # come from the proxy's IP in the audit log.
+      # address as seen from this container (see docs/installation.md) —
+      # otherwise every user appears to come from the proxy's IP in the audit log.
       REAL_IP_FROM: ${REAL_IP_FROM:-}
-    ports: ["8080:80"]
+    # Host port, optionally with a bind address. Behind a reverse proxy on this
+    # host use e.g. WEB_PORT=127.0.0.1:8081 so only the proxy can connect.
+    ports: ["${WEB_PORT:-8080}:80"]
     healthcheck:
       # /up is Laravel's health route: a 200 proves nginx, php-fpm and the app
       # boot all work, so Komodo/`docker ps` show real health, not just "running".

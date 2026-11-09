@@ -34,69 +34,53 @@ Email (`MAIL_*`) is not configured here — the setup wizard handles it after bo
 
 ## 3. Start the app
 
-Pick the option that matches how the app is reached:
-
-- **Option A** — a trusted home/office network, or you already run a reverse
-  proxy. Simplest; start here if unsure.
-- **Option B** — internal use where you want HTTPS but have no proxy.
-
-### Option A: Plain HTTP (port 8080)
-
 Starts the app on port `8080` over HTTP:
 
 ```bash
 docker compose -f docker-compose.prod.yml up -d
 ```
 
-That's all you need on a trusted network. For public exposure, put your own
-TLS-terminating proxy (Nginx, Caddy, Traefik) in front — see
-[`Caddyfile.example`](../Caddyfile.example) for a sample config.
+That's all you need on a trusted network. For HTTPS, or to share the server
+with other web apps, put your own reverse proxy in front.
 
-> **Behind a proxy?** Set `REAL_IP_FROM` in `.env` to the proxy's address as
-> seen from the `web` container (comma-separated IPs/CIDRs — for a proxy on the
-> Docker host that's usually the gateway, e.g. `172.17.0.1`; otherwise its LAN
-> IP). The bundled nginx then takes each visitor's real IP from the proxy's
-> `X-Forwarded-For` for the audit log and login throttling. Leave it unset when
-> users connect straight to port 8080 — nginx then ignores any
-> `X-Forwarded-For` a visitor sends, so the IP can't be forged. The TLS stack
-> (Option B) configures this for Caddy automatically.
+### Behind a reverse proxy
 
-### Option B: Internal network with self-signed TLS
-
-For internal use (a local IP or `.local` hostname) without a proxy, a bundled
-compose file adds a Caddy container that generates a self-signed certificate.
-
-1. Set `APP_URL` to `https://` plus the exact name users type, e.g.
-   `https://docs.corp.lan` (the DNS record you created) or `https://192.0.2.10`.
-   The Caddy container refuses to start if it doesn't begin with `https://`.
-2. If users also reach the site by other names or IPs (a short name, the
-   server's IP, …), list them in `TLS_HOSTS`, e.g. `TLS_HOSTS=docs, 192.0.2.10`.
-   Caddy only has certificates for `APP_URL`'s host plus `TLS_HOSTS`; browsing
-   by any other name fails with `ERR_SSL_PROTOCOL_ERROR`. Check what it serves
-   with `docker compose -f docker-compose.tls.yml logs caddy | grep 'serving HTTPS'`.
-3. Download the TLS compose file:
-   ```bash
-   curl -O https://raw.githubusercontent.com/petre0013/www.doc/main/docker-compose.tls.yml
-   ```
-4. Start the stack with only this file:
-   ```bash
-   docker compose -f docker-compose.tls.yml up -d
-   ```
-   After changing `APP_URL` or `TLS_HOSTS` later, apply it with
-   `docker compose -f docker-compose.tls.yml up -d --force-recreate`.
-
-The certificate is self-signed, so browsers warn on first visit; this is safe
-to bypass on your own network. To remove the warning, trust Caddy's root CA on
-each device (on a Windows domain, push it via Group Policy → *Trusted Root
-Certification Authorities*):
+The app serves plain HTTP and leaves TLS to your proxy (Nginx, Caddy, Traefik).
+Set these in `.env`, then run the command above:
 
 ```bash
-docker compose -f docker-compose.tls.yml cp caddy:/data/caddy/pki/authorities/local/root.crt ./wwwdoc-root.crt
+APP_URL=https://docs.example.com
+WEB_PORT=127.0.0.1:8081        # pick a free port; loopback keeps the proxy as the only way in
+REAL_IP_FROM=172.16.0.0/12     # Docker's private range, where the proxy appears to come from
+SESSION_SECURE_COOKIE=true     # HTTPS only
 ```
 
-> **`ERR_SSL_PROTOCOL_ERROR`?** Either the name in the address bar isn't in
-> `APP_URL`/`TLS_HOSTS` (see step 2), or you're browsing `https://` to the
-> plain-HTTP stack from Option A (port 8080 has no TLS).
+Without `REAL_IP_FROM`, every user appears to come from the proxy's IP in the
+audit log and shares one login throttle. Only trust a Docker range when
+`WEB_PORT` is bound to loopback: on a port open to the network, visitors could
+forge their IP. If the proxy runs on another machine, publish the port normally
+and set `REAL_IP_FROM` to that machine's IP.
+
+The proxy must forward `Host`, `X-Forwarded-For` and `X-Forwarded-Proto`, and
+must allow uploads of up to 1088 MB (the backup import limit). Caddy does all of
+this by default — see [`Caddyfile.example`](../Caddyfile.example). For Nginx:
+
+```nginx
+server {
+    listen 443 ssl;
+    server_name docs.example.com;
+    # ssl_certificate / ssl_certificate_key ...
+
+    client_max_body_size 1088m;
+
+    location / {
+        proxy_pass http://127.0.0.1:8081;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+```
 
 ## 4. Run the setup wizard
 
@@ -134,8 +118,7 @@ docker compose -f docker-compose.prod.yml pull
 docker compose -f docker-compose.prod.yml up -d
 ```
 
-For the internal TLS option, swap `docker-compose.prod.yml` for
-`docker-compose.tls.yml`. Schema migrations run automatically on boot.
+Schema migrations run automatically on boot.
 
 The compose files use the `latest` tag, which moves only when a new
 [release](https://github.com/petre0013/www.doc/releases) is published — so the
@@ -148,8 +131,7 @@ version instead, replace `latest` with a release tag (e.g. `v1.0.0`) on both
 ## GUI managers (Komodo, Portainer, Dockge)
 
 - Create a stack pointing at the Git repository, or paste the contents of
-  `docker-compose.prod.yml` (or `docker-compose.tls.yml` for internal TLS)
-  into the UI.
+  `docker-compose.prod.yml` into the UI.
 - Add your `.env` variables (`APP_URL`, `DB_PASSWORD`, …) in the manager's
   environment section.
 - **Automatic updates (Komodo):** with the default `latest` tags, enable
@@ -171,6 +153,5 @@ docker compose -f docker-compose.prod.yml -f docker-compose.build.yml up -d --bu
 ```
 
 The override adds `build:` blocks for the `app` and `web` images; `worker` and
-`scheduler` reuse the built `app` image. It combines with the TLS variant the
-same way (`-f docker-compose.tls.yml -f docker-compose.build.yml`). To update,
-`git pull` and re-run the `up -d --build` command.
+`scheduler` reuse the built `app` image. To update, `git pull` and re-run the
+`up -d --build` command.
