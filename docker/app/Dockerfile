@@ -3,7 +3,7 @@
 # ── Stage 1: build the frontend assets ──────────────────────────────────────
 # Same Node major as the runtime below (nodesource 24.x) and the dev vite
 # container, so the build and the app never disagree about Node behaviour.
-FROM node:24-alpine AS assets
+FROM node:26-alpine AS assets
 WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci
