@@ -6,7 +6,7 @@ services:
     ports: ["5433:5432"]
     volumes: [pgdata:/var/lib/postgresql/data]
     healthcheck: { test: ["CMD-SHELL", "pg_isready -U wwwdoc"], interval: 5s, retries: 10 }
-  redis: { image: redis:7-alpine }
+  redis: { image: redis:8-alpine }
   app:
     build: &app-build { context: ., dockerfile: docker/app/Dockerfile.dev }
     # Run as the host user so files written to the bind mount (backups, logs,
