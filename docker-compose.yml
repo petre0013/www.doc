@@ -1,7 +1,7 @@
 name: wwwdoc-dev
 services:
   db:
-    image: postgres:16-alpine
+    image: postgres:18-alpine
     environment: { POSTGRES_DB: wwwdoc, POSTGRES_USER: wwwdoc, POSTGRES_PASSWORD: wwwdoc }
     ports: ["5433:5432"]
     volumes: [pgdata:/var/lib/postgresql/data]
