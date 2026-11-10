@@ -78,6 +78,96 @@ Point each name's DNS record at the server. Trust Caddy's root certificate
 (`/data/caddy/pki/authorities/local/root.crt` in the Caddy container) once on
 each device and every app behind it is trusted.
 
+#### Example: Nginx Proxy Manager with an internal wildcard certificate
+
+[Nginx Proxy Manager](https://nginxproxymanager.com) (NPM) gives the proxy a
+web UI. Its built-in certificates come from Let's Encrypt, which can't issue
+for internal-only names, so you create one wildcard certificate for all apps
+from your own CA and upload it once. Replace `corp.lan` with your domain; it
+needs two labels, as browsers reject a wildcard directly under a top-level
+domain (`*.lan`).
+
+1. **Deploy NPM** as its own stack. It owns ports 80/443 (free them first) and
+   creates the shared `proxy` network:
+
+   ```yaml
+   name: proxy
+   services:
+     npm:
+       image: jc21/nginx-proxy-manager:latest
+       restart: unless-stopped
+       ports: ["80:80", "443:443", "81:81"]   # 81 = admin web UI
+       networks: [proxy]
+       volumes: [npm_data:/data, npm_letsencrypt:/etc/letsencrypt]
+   networks:
+     proxy:
+       name: proxy
+   volumes:
+     npm_data: {}
+     npm_letsencrypt: {}
+   ```
+
+   Open `http://<server-ip>:81` and create the admin account (older versions
+   start with `admin@example.com` / `changeme`; change it). Port 81 controls
+   every site, so allow only admin machines to reach it.
+
+2. **Create the CA and wildcard certificate** on any machine with `openssl`:
+
+   ```bash
+   DOMAIN=corp.lan
+
+   # Root CA, valid 10 years: the certificate devices will trust
+   openssl req -x509 -new -nodes -newkey rsa:4096 -sha256 -days 3650 \
+     -keyout corp-root-ca.key -out corp-root-ca.crt -subj "/CN=Corp Internal Root CA" \
+     -addext "basicConstraints=critical,CA:TRUE" -addext "keyUsage=critical,keyCertSign,cRLSign"
+
+   # Wildcard certificate, valid 825 days (the longest Apple devices accept)
+   openssl req -new -nodes -newkey rsa:2048 -keyout wildcard.key -out wildcard.csr -subj "/CN=*.$DOMAIN"
+   printf "subjectAltName=DNS:*.$DOMAIN,DNS:$DOMAIN\nbasicConstraints=CA:FALSE\nkeyUsage=critical,digitalSignature,keyEncipherment\nextendedKeyUsage=serverAuth\n" > wildcard.ext
+   openssl x509 -req -in wildcard.csr -CA corp-root-ca.crt -CAkey corp-root-ca.key -CAcreateserial \
+     -out wildcard.crt -days 825 -sha256 -extfile wildcard.ext
+   ```
+
+   Keep `corp-root-ca.key` offline: anyone holding it can create certificates
+   your devices trust. You only need it to renew the wildcard certificate
+   (re-run the last three commands before it expires).
+
+   In NPM, go to **SSL Certificates → Add → Custom** and upload `wildcard.key`
+   and `wildcard.crt`.
+
+3. **Deploy www.doc** with `docker-compose.proxy.yml` as described above, with
+   `APP_URL=https://docs.corp.lan`.
+
+4. **Add a Proxy Host** in NPM:
+   - *Details*: domain `docs.corp.lan`, scheme `http`, forward hostname
+     `wwwdoc-web`, port `80`, *Block Common Exploits* on.
+   - *SSL*: the wildcard certificate, *Force SSL* and *HTTP/2* on.
+   - *Advanced*: the line below. **Required:** without it nginx's 1 MB default
+     rejects backup imports and document uploads with `413`.
+
+     ```nginx
+     client_max_body_size 1088m;
+     ```
+
+   NPM already forwards `Host`, `X-Forwarded-For` and `X-Forwarded-Proto`.
+
+5. **DNS and devices**: add an A record for each name pointing at the server,
+   and install `corp-root-ca.crt` as a trusted root on each device (Windows:
+   Group Policy → *Trusted Root Certification Authorities*, or
+   `certutil -addstore -f Root corp-root-ca.crt`; macOS: Keychain Access →
+   *Always Trust*; Linux: copy to `/usr/local/share/ca-certificates/` and run
+   `update-ca-certificates`; Firefox: enable `security.enterprise_roots.enabled`
+   or import it). It covers every app under `*.corp.lan`.
+
+Other apps join the same way: drop their published port, add their web service
+to the external `proxy` network with a unique alias, and add a Proxy Host
+pointing at that alias and the port inside the container.
+
+> **Troubleshooting:** `502` means NPM can't reach the app (is it on the
+> `proxy` network, and do the hostname and port match?). `413` means the
+> *Advanced* line is missing. A certificate warning means that device doesn't
+> trust the root CA yet.
+
 ### Behind a proxy on the host or another machine
 
 Use `docker-compose.prod.yml` and set these in `.env`:
