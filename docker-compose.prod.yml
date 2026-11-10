@@ -74,6 +74,9 @@ services:
     depends_on:
       db: { condition: service_healthy }
       redis: { condition: service_started }
+      # After app: a new app-storage volume is filled from the image by the
+      # first container to mount it; several at once race and fail (file exists).
+      app: { condition: service_started }
 
   scheduler:
     <<: *app-image
@@ -86,6 +89,9 @@ services:
     depends_on:
       db: { condition: service_healthy }
       redis: { condition: service_started }
+      # After app: a new app-storage volume is filled from the image by the
+      # first container to mount it; several at once race and fail (file exists).
+      app: { condition: service_started }
 
   web:
     # nginx with the build/ assets baked in (target: web). It serves static

@@ -1,0 +1,137 @@
+# Production stack for running BEHIND a reverse proxy container (Caddy, Nginx
+# Proxy Manager, Traefik, …) on the same Docker host. Self-contained: paste it
+# into Komodo / Portainer / Dockge as-is, or run it with plain Compose.
+#
+# Differences from docker-compose.prod.yml:
+#   - `web` publishes no port; it joins your proxy's Docker network instead,
+#     reachable there as  wwwdoc-web:80  — point your proxy at that.
+#   - HTTPS defaults: secure session cookies, and the client IP is taken from
+#     the proxy's X-Forwarded-For (safe, as only containers can reach `web`).
+#
+# Needs in .env (or the manager's environment section):
+#   APP_URL=https://docs.example.lan   # the exact address users type
+#   DB_PASSWORD=...                    # plus APP_KEY etc., see .env.example
+#   PROXY_NETWORK=proxy                # optional; your proxy's network name
+#
+# The proxy network must already exist (your proxy stack creates it, or run
+# `docker network create proxy` once).
+#
+#   docker compose -f docker-compose.proxy.yml up -d
+name: wwwdoc
+
+x-app: &app-image
+  image: petre0013/www.doc-app:${WWWDOC_VERSION:-latest}
+  env_file: .env
+  environment: &app-env
+    APP_ENV: production
+    APP_DEBUG: "false"
+    DB_CONNECTION: pgsql
+    DB_HOST: db
+    DB_PORT: "5432"
+    DB_DATABASE: ${DB_DATABASE:-wwwdoc}
+    DB_USERNAME: ${DB_USERNAME:-wwwdoc}
+    REDIS_HOST: redis
+    QUEUE_CONNECTION: redis
+    SESSION_DRIVER: redis
+    # Users reach the site over HTTPS (the proxy terminates TLS).
+    SESSION_SECURE_COOKIE: ${SESSION_SECURE_COOKIE:-true}
+    CACHE_STORE: redis
+    APP_KEY: ${APP_KEY:-}
+    APP_URL: ${APP_URL:-}
+    BACKUP_ENCRYPTION_KEY: ${BACKUP_ENCRYPTION_KEY:-}
+  restart: unless-stopped
+  logging: &default-logging
+    driver: "json-file"
+    options:
+      max-size: "10m"
+      max-file: "3"
+
+services:
+  db:
+    image: postgres:16-alpine@sha256:aa6cb33cf4c19c765cefcf48d96176258800870a9a1e930ad126200f9d825139
+    environment:
+      POSTGRES_DB: ${DB_DATABASE:-wwwdoc}
+      POSTGRES_USER: ${DB_USERNAME:-wwwdoc}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?set DB_PASSWORD in .env}
+    volumes: ["pgdata:/var/lib/postgresql/data"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-wwwdoc}"]
+      interval: 5s
+      retries: 10
+    restart: unless-stopped
+    logging: *default-logging
+
+  redis:
+    image: redis:7-alpine@sha256:c5d34a98396a4775e223c74e929162c35c5a2182901ba26b50ade939941ce14b
+    restart: unless-stopped
+    logging: *default-logging
+
+  app:
+    <<: *app-image
+    # php-fpm; reachable by the web service at app:9000. Code + built assets are
+    # baked into the image; only writable storage (uploads, caches) is a volume.
+    volumes:
+      - app-storage:/var/www/html/storage
+    depends_on:
+      db: { condition: service_healthy }
+      redis: { condition: service_started }
+
+  worker:
+    <<: *app-image
+    command: php artisan queue:work --tries=3 --timeout=300
+    volumes:
+      - app-storage:/var/www/html/storage
+    depends_on:
+      db: { condition: service_healthy }
+      redis: { condition: service_started }
+      # After app: a new app-storage volume is filled from the image by the
+      # first container to mount it; several at once race and fail (file exists).
+      app: { condition: service_started }
+
+  scheduler:
+    <<: *app-image
+    # Runs Laravel's scheduler in-process (wakes every minute) so registered
+    # tasks actually fire — today that's the daily assets:prune.
+    command: php artisan schedule:work
+    volumes:
+      - app-storage:/var/www/html/storage
+    depends_on:
+      db: { condition: service_healthy }
+      redis: { condition: service_started }
+      # After app: a new app-storage volume is filled from the image by the
+      # first container to mount it; several at once race and fail (file exists).
+      app: { condition: service_started }
+
+  web:
+    # nginx with the build/ assets baked in (target: web). It serves static
+    # files and proxies PHP to app:9000.
+    image: petre0013/www.doc-web:${WWWDOC_VERSION:-latest}
+    environment:
+      # No published port, so only containers (the proxy) can connect: trust
+      # their X-Forwarded-For for the real client IP (audit log, login lockout).
+      REAL_IP_FROM: ${REAL_IP_FROM:-10.0.0.0/8,172.16.0.0/12,192.168.0.0/16}
+    # No `ports:` on purpose — reach it through the proxy only.
+    networks:
+      default: {}
+      proxy:
+        aliases: [wwwdoc-web]
+    healthcheck:
+      # /up is Laravel's health route: a 200 proves nginx, php-fpm and the app
+      # boot all work, so Komodo/`docker ps` show real health, not just "running".
+      test: ["CMD-SHELL", "wget -qO /dev/null http://127.0.0.1/up || exit 1"]
+      interval: 30s
+      timeout: 5s
+      start_period: 60s
+      retries: 3
+    depends_on: [app]
+    restart: unless-stopped
+    logging: *default-logging
+
+networks:
+  proxy:
+    external: true
+    name: ${PROXY_NETWORK:-proxy}
+
+volumes:
+  pgdata: {}
+  app-storage: {}

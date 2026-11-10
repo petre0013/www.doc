@@ -43,10 +43,44 @@ docker compose -f docker-compose.prod.yml up -d
 That's all you need on a trusted network. For HTTPS, or to share the server
 with other web apps, put your own reverse proxy in front.
 
-### Behind a reverse proxy
+### Behind a reverse proxy container (same Docker host)
 
-The app serves plain HTTP and leaves TLS to your proxy (Nginx, Caddy, Traefik).
-Set these in `.env`, then run the command above:
+For HTTPS with internal DNS names, and several apps sharing one IP: run one
+proxy container (Caddy, Nginx Proxy Manager, Traefik) that owns ports 80/443
+and routes each hostname to its app. Use `docker-compose.proxy.yml` instead of
+the prod file. It is self-contained (paste it into Komodo as-is), publishes no
+port, and joins your proxy's Docker network, where the app is `wwwdoc-web:80`.
+
+```bash
+curl -O https://raw.githubusercontent.com/petre0013/www.doc/main/docker-compose.proxy.yml
+```
+
+In `.env`, set `APP_URL` to the HTTPS address (e.g. `https://docs.corp.lan`)
+plus `DB_PASSWORD`/`APP_KEY` as above. If your proxy's network isn't called
+`proxy`, set `PROXY_NETWORK`. The network must exist first (your proxy stack
+creates it, or run `docker network create proxy` once). Secure cookies and the
+real client IP are preset; nothing else is needed.
+
+```bash
+docker compose -f docker-compose.proxy.yml up -d
+```
+
+A Caddy proxy with its own internal CA needs just this per app:
+
+```
+docs.corp.lan {
+    tls internal
+    reverse_proxy wwwdoc-web:80
+}
+```
+
+Point each name's DNS record at the server. Trust Caddy's root certificate
+(`/data/caddy/pki/authorities/local/root.crt` in the Caddy container) once on
+each device and every app behind it is trusted.
+
+### Behind a proxy on the host or another machine
+
+Use `docker-compose.prod.yml` and set these in `.env`:
 
 ```bash
 APP_URL=https://docs.example.com
@@ -60,6 +94,8 @@ audit log and shares one login throttle. Only trust a Docker range when
 `WEB_PORT` is bound to loopback: on a port open to the network, visitors could
 forge their IP. If the proxy runs on another machine, publish the port normally
 and set `REAL_IP_FROM` to that machine's IP.
+
+### Proxy requirements
 
 The proxy must forward `Host`, `X-Forwarded-For` and `X-Forwarded-Proto`, and
 must allow uploads of up to 1088 MB (the backup import limit). Caddy does all of
@@ -91,6 +127,8 @@ and build caches. Check progress with:
 docker compose -f docker-compose.prod.yml ps        # all services "running"
 docker compose -f docker-compose.prod.yml logs -f app   # watch startup; Ctrl-C to exit
 ```
+
+(Swap in `docker-compose.proxy.yml` here and below if you use that file.)
 
 Then open your `APP_URL` in a browser and the setup wizard walks through the
 steps below.
@@ -131,7 +169,8 @@ version instead, replace `latest` with a release tag (e.g. `v1.0.0`) on both
 ## GUI managers (Komodo, Portainer, Dockge)
 
 - Create a stack pointing at the Git repository, or paste the contents of
-  `docker-compose.prod.yml` into the UI.
+  `docker-compose.prod.yml` into the UI — or `docker-compose.proxy.yml` when
+  a reverse proxy container on the same host serves it.
 - Add your `.env` variables (`APP_URL`, `DB_PASSWORD`, …) in the manager's
   environment section.
 - **Automatic updates (Komodo):** with the default `latest` tags, enable
