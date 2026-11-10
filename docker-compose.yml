@@ -60,7 +60,7 @@ services:
     # node_modules gets glibc-native binaries. On node:24-alpine (musl) the
     # shared npm install pulled a musl @resvg/resvg-js binary the glibc app
     # container couldn't load, silently breaking DOCX diagram export.
-    image: node:24-bookworm-slim
+    image: node:26-bookworm-slim
     working_dir: /app
     command: sh -c "npm install && npm run dev -- --host 0.0.0.0"
     volumes: [".:/app"]
