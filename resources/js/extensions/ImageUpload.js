@@ -25,6 +25,22 @@ async function rehostUrl(url) {
     return res.json();
 }
 
+/**
+ * The root-relative /storage/… path when `src` is an absolute URL to one of
+ * this instance's own assets (same hostname, any scheme/port), else null.
+ * The server applies the same rewrite on save for hosts we can't recognise
+ * here (e.g. content copied while the app was reached by another name).
+ */
+export function ownAssetPath(src) {
+    try {
+        const u = new URL(src);
+        if (!/^https?:$/.test(u.protocol) || u.hostname !== window.location.hostname) return null;
+        return u.pathname.startsWith('/storage/') ? u.pathname : null;
+    } catch {
+        return null;
+    }
+}
+
 export function dataUriToFile(dataUri, filename = 'pasted-image.png') {
     const [header, b64] = dataUri.split(',');
     const mime = header.match(/:(.*?);/)?.[1] ?? 'image/png';
@@ -139,6 +155,13 @@ export const ImageUpload = Extension.create({
                                         if (src.startsWith('data:image/')) {
                                             const { url } = await uploadFile(dataUriToFile(src));
                                             img.setAttribute('src', url);
+                                        } else if (ownAssetPath(src)) {
+                                            // Copied out of a www.doc page: the browser
+                                            // absolutized our own /storage/ src. Keep it
+                                            // root-relative instead of rehosting (the SSRF
+                                            // guard refuses our private host, and the
+                                            // fallback would save a scheme-pinned URL).
+                                            img.setAttribute('src', ownAssetPath(src));
                                         } else if (/^https?:\/\//i.test(src)) {
                                             // A single "Copy Image" from a browser puts the decoded
                                             // bitmap on the clipboard alongside an <img> pointing at

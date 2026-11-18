@@ -1,4 +1,5 @@
 import Image from '@tiptap/extension-image';
+import { ownAssetPath } from './ImageUpload';
 
 /**
  * Extends TipTap's Image with two extra attributes:
@@ -59,7 +60,10 @@ export const ResizableImage = Image.extend({
 
             let lastRealSrc = null;
 
-            function loadRealImage(targetSrc) {
+            function loadRealImage(rawSrc) {
+                // Snapshots saved before the server-side rewrite may still hold an
+                // absolute URL to our own asset; load it relative to this origin.
+                const targetSrc = ownAssetPath(rawSrc) ?? rawSrc;
                 if (lastRealSrc === targetSrc) return;
                 lastRealSrc = targetSrc;
                 

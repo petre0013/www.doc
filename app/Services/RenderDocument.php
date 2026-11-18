@@ -226,8 +226,10 @@ class ResizableImageNode extends \Tiptap\Nodes\Image
     public function renderHTML($node, $HTMLAttributes = [])
     {
         $attrs = $node->attrs ?? (object) [];
-        $src   = $attrs->src   ?? '';
-        
+        // Older content (and immutable version snapshots, which sign-off hashes
+        // pin) may hold an absolute URL to our own asset — render it relative.
+        $src   = \App\Support\TipTap::relativizeAssetUrl((string) ($attrs->src ?? ''));
+
         if (\App\Services\RenderDocument::$embedImages) {
             $src = \App\Services\RenderDocument::resolveImageToDataUri($src);
         }
