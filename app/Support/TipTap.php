@@ -56,6 +56,10 @@ class TipTap
             return $node;
         }
 
+        if (($node['type'] ?? null) === 'image' && is_string($node['attrs']['src'] ?? null)) {
+            $node['attrs']['src'] = self::relativizeAssetUrl($node['attrs']['src']);
+        }
+
         if (isset($node['content']) && is_array($node['content'])) {
             $clean = [];
             foreach ($node['content'] as $child) {
@@ -72,6 +76,39 @@ class TipTap
         }
 
         return $node;
+    }
+
+    /**
+     * Turn an absolute URL to one of OUR stored assets back into its
+     * root-relative /storage/… form.
+     *
+     * Copying a page's content in the browser absolutizes every <img src>, so
+     * pasting it back (same page, another page, another tab) carries
+     * `https://<host>/storage/assets/…`. The paste pipeline can't rehost it —
+     * the SSRF guard rightly refuses the app's own private address — so the
+     * absolute URL used to be saved verbatim. It then breaks the moment the
+     * instance is reached under another scheme/host/port (served over HTTP:
+     * the browser dials :443 and gets ERR_SSL_UNRECOGNIZED_NAME_ALERT), and
+     * exports try to fetch it instead of reading the disk.
+     *
+     * Rewritten only when the file actually exists on the public disk: asset
+     * names are content hashes, so an existing file IS the same image no
+     * matter which host the URL named. Anything else is left untouched.
+     */
+    public static function relativizeAssetUrl(string $src): string
+    {
+        if (! preg_match('#^https?://[^/?\#]+(/storage/[^?\#]+)#i', $src, $m)) {
+            return $src;
+        }
+
+        $relative = rawurldecode(substr($m[1], strlen('/storage/')));
+        if ($relative === '' || str_contains($relative, '..')) {
+            return $src;
+        }
+
+        return \Illuminate\Support\Facades\Storage::disk('public')->exists($relative)
+            ? $m[1]
+            : $src;
     }
 
     /**

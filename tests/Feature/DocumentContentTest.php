@@ -41,3 +41,47 @@ test('normalize is a no-op on already-valid content', function () {
 
     expect(TipTap::normalize($doc))->toBe($doc);
 });
+
+/**
+ * Copying a page's content in the browser absolutizes <img src>; pasting it
+ * back stored `https://<host>/storage/assets/…`, which breaks (and on HTTP
+ * deployments fails TLS on :443) as soon as the instance is reached under a
+ * different scheme/host. Saves must store our own assets root-relative.
+ */
+test('the save path stores absolute URLs to our own assets as /storage/ paths', function () {
+    \Illuminate\Support\Facades\Storage::fake('public');
+    \Illuminate\Support\Facades\Storage::disk('public')->put('assets/abc123.png', 'png');
+
+    login();
+    $document = Document::factory()->create();
+
+    $image = fn (string $src) => ['type' => 'image', 'attrs' => ['src' => $src]];
+
+    $this->patch("/documents/{$document->id}", [
+        'title' => $document->title,
+        'content' => ['type' => 'doc', 'content' => [
+            $image('https://10.0.0.5/storage/assets/abc123.png'),
+            $image('http://docs.corp.lan:8080/storage/assets/abc123.png?x=1'),
+            // Not ours (no such file) and external images: left untouched.
+            $image('https://other.example/storage/assets/missing.png'),
+            $image('https://cdn.example/logo.png'),
+        ]],
+    ])->assertRedirect();
+
+    $fresh = $document->fresh();
+    $srcs = array_map(fn ($n) => $n['attrs']['src'], $fresh->content['content']);
+
+    expect($srcs)->toBe([
+        '/storage/assets/abc123.png',
+        '/storage/assets/abc123.png',
+        'https://other.example/storage/assets/missing.png',
+        'https://cdn.example/logo.png',
+    ])->and($fresh->content_html)->not->toContain('https://10.0.0.5');
+});
+
+test('relativizeAssetUrl refuses path traversal', function () {
+    \Illuminate\Support\Facades\Storage::fake('public');
+
+    expect(TipTap::relativizeAssetUrl('https://h/storage/../.env'))->toBe('https://h/storage/../.env')
+        ->and(TipTap::relativizeAssetUrl('/storage/assets/x.png'))->toBe('/storage/assets/x.png');
+});
