@@ -95,5 +95,10 @@
         }
     },
     "minimum-stability": "stable",
-    "prefer-stable": true
+    "prefer-stable": true,
+    "repositories": [{
+        "name": "icewind-streams",
+        "type": "vcs",
+        "url": "https://github.com/icewind1991/Streams"
+    }]
 }

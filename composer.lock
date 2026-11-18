@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "caf103e7ec8488af5b2292d56a1a443f",
+    "content-hash": "beb20db288c22bdc4830fa31d786338d",
     "packages": [
         {
             "name": "brick/math",
@@ -1397,8 +1397,14 @@
             "version": "v0.7.8",
             "source": {
                 "type": "git",
-                "url": "https://codeberg.org/icewind/streams",
+                "url": "https://github.com/icewind1991/Streams.git",
                 "reference": "cb2bd3ed41b516efb97e06e8da35a12ef58ba48b"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/icewind1991/Streams/zipball/cb2bd3ed41b516efb97e06e8da35a12ef58ba48b",
+                "reference": "cb2bd3ed41b516efb97e06e8da35a12ef58ba48b",
+                "shasum": ""
             },
             "require": {
                 "php": ">=7.1"
@@ -1414,7 +1420,11 @@
                     "Icewind\\Streams\\": "src/"
                 }
             },
-            "notification-url": "https://packagist.org/downloads/",
+            "autoload-dev": {
+                "psr-4": {
+                    "Icewind\\Streams\\Tests\\": "tests/"
+                }
+            },
             "license": [
                 "MIT"
             ],
@@ -1425,8 +1435,11 @@
                 }
             ],
             "description": "A set of generic stream wrappers",
-            "time": "2024-12-05T14:36:22+00:00",
-            "published-time": "2024-12-05T14:37:08+00:00"
+            "support": {
+                "source": "https://github.com/icewind1991/Streams/tree/v0.7.8",
+                "issues": "https://github.com/icewind1991/Streams/issues"
+            },
+            "time": "2024-12-05T14:36:22+00:00"
         },
         {
             "name": "inertiajs/inertia-laravel",
